@@ -18,7 +18,7 @@ azure-automation/
 │   └── delegate-access-sync/
 │       └── Sync-DelegateAccessByAttribute.ps1           # Runbook: FullAccess per AD-Attribut steuern
 │
-└── kerberos-key-rollover/
+└── entra-seamless-sso/
     ├── Initialize-HybridWorker.ps1                      # Einmalige Hybrid Worker Group Einrichtung
     └── Reset-KerberosSSO.ps1                            # Runbook: Kerberos Key monatlich rotieren
 ```
@@ -64,7 +64,7 @@ Weitere Details: [`exchange/delegate-access-sync/README.md`](exchange/delegate-a
 
 ### Kerberos Key Rollover – Seamless SSO
 
-**Verzeichnis:** `kerberos-key-rollover/`
+**Verzeichnis:** `entra-seamless-sso/`
 
 Rotiert den **Kerberos Decryption Key** des `AZUREADSSOACC`-Kontos für Entra ID Seamless SSO monatlich via Hybrid Runbook Worker.
 
@@ -78,7 +78,7 @@ Rotiert den **Kerberos Decryption Key** des `AZUREADSSOACC`-Kontos für Entra ID
 
 > Hinweis: Agent-based Hybrid Worker ist seit 31.08.2024 EOL (Abschaltung 01.04.2025).
 
-Weitere Details: [`kerberos-key-rollover/README.md`](kerberos-key-rollover/README.md)
+Weitere Details: [`entra-seamless-sso/README.md`](entra-seamless-sso/README.md)
 
 ---
 
