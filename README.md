@@ -10,6 +10,10 @@ Alle Skripte nutzen ausschließlich **System-Managed Identity** (keine gespeiche
 
 ```
 azure-automation/
+├── app-registration-expiry-alerts/
+│   ├── Initialize-AppExpiryAlertAutomationIdentity.ps1  # Einmalige Berechtigungseinrichtung
+│   └── Invoke-AppRegistrationExpiryAlerts.ps1           # Runbook: Ablaufende Secrets/Zertifikate warnen
+│
 ├── entra-conditional-access/
 │   ├── Initialize-NamedLocationAutomationIdentity.ps1   # Einmalige Berechtigungseinrichtung
 │   └── Invoke-TorExitNodesNamedLocation.ps1             # Runbook: Tor Exit Nodes aktuell halten
@@ -22,6 +26,23 @@ azure-automation/
 ---
 
 ## Runbooks
+
+### App Registration – Expiry Alerts
+
+**Verzeichnis:** `app-registration-expiry-alerts/`
+
+Prüft alle **App Registrations** und **Service Principals** auf ablaufende **Client Secrets** und **Zertifikate** und sendet Warnmeldungen per **Teams-Webhook** (Adaptive Card) und **E-Mail** (HTML).
+
+| Skript | Zweck | Ausführung |
+|--------|-------|------------|
+| `Initialize-AppExpiryAlertAutomationIdentity.ps1` | Weist der Managed Identity die nötigen Graph-Berechtigungen zu | Einmalig |
+| `Invoke-AppRegistrationExpiryAlerts.ps1` | Prüft Credentials und sendet Benachrichtigungen | Geplant (täglich) |
+
+**Benötigte Graph-Berechtigungen:** `Application.Read.All`, `Mail.Send`
+
+Weitere Details: [`app-registration-expiry-alerts/README.md`](app-registration-expiry-alerts/README.md)
+
+---
 
 ### Entra ID Conditional Access – Tor Exit Nodes
 
