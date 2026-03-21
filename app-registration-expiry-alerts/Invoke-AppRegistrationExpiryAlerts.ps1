@@ -520,33 +520,29 @@ function New-HtmlMailBody {
     $info     = @($Items | Where-Object { $_.DaysLeft -gt 30 })
 
     # Vater IT CI: Dark Navy #06263F | Blue #0F436A | Mint #1AF0C5
-    $summaryColor = if ($expired.Count -gt 0 -or $critical.Count -gt 0) { '#c0392b' }
-                    elseif ($warning.Count -gt 0)                        { '#d35400' }
-                    else                                                  { '#06263F' }
-
-    function Get-RowBg ([int]$d) {
-        if ($d -le 0)  { return '#fdf2f2' }
-        if ($d -le 14) { return '#fdf2f2' }
-        if ($d -le 30) { return '#fef9e7' }
-        return '#e8f5f2'
+    function Get-AccentColor ([int]$d) {
+        if ($d -le 0)  { return '#b91c1c' }
+        if ($d -le 14) { return '#c2410c' }
+        if ($d -le 30) { return '#b45309' }
+        return '#1AF0C5'
     }
 
     function Get-BadgeHtml ([int]$d) {
-        if ($d -le 0)  { return "<span style='background:#c0392b;color:#fff;padding:2px 8px;border-radius:3px;font-size:11px;font-weight:700;letter-spacing:.3px;'>ABGELAUFEN</span>" }
-        if ($d -le 14) { return "<span style='background:#c0392b;color:#fff;padding:2px 8px;border-radius:3px;font-size:11px;font-weight:700;letter-spacing:.3px;'>KRITISCH</span>" }
-        if ($d -le 30) { return "<span style='background:#d35400;color:#fff;padding:2px 8px;border-radius:3px;font-size:11px;font-weight:700;letter-spacing:.3px;'>WARNUNG</span>" }
-        return "<span style='background:#0F436A;color:#1AF0C5;padding:2px 8px;border-radius:3px;font-size:11px;font-weight:700;letter-spacing:.3px;'>HINWEIS</span>"
+        if ($d -le 0)  { return "<span style='display:inline-block;background:#fef2f2;color:#b91c1c;border:1px solid #fecaca;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700;letter-spacing:.4px;white-space:nowrap;'>ABGELAUFEN</span>" }
+        if ($d -le 14) { return "<span style='display:inline-block;background:#fff7ed;color:#c2410c;border:1px solid #fed7aa;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700;letter-spacing:.4px;white-space:nowrap;'>KRITISCH</span>" }
+        if ($d -le 30) { return "<span style='display:inline-block;background:#fffbeb;color:#b45309;border:1px solid #fde68a;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700;letter-spacing:.4px;white-space:nowrap;'>WARNUNG</span>" }
+        return "<span style='display:inline-block;background:#06263F;color:#1AF0C5;border:1px solid #0F436A;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700;letter-spacing:.4px;white-space:nowrap;'>HINWEIS</span>"
     }
 
     function Get-DaysText ([int]$d) {
-        if ($d -le 0) { return "Abgelaufen (vor $([Math]::Abs($d)) Tag$(if([Math]::Abs($d)-ne1){'en'}))" }
-        return "$d Tag$(if($d -ne 1){'e'})"
+        if ($d -le 0) { return "vor $([Math]::Abs($d)) Tag$(if([Math]::Abs($d)-ne1){'en'})" }
+        return "in $d Tag$(if($d -ne 1){'en'})"
     }
 
     $tableRows = foreach ($item in $Items | Sort-Object DaysLeft) {
-        $bg        = Get-RowBg    $item.DaysLeft
-        $badge     = Get-BadgeHtml $item.DaysLeft
-        $daysText  = Get-DaysText  $item.DaysLeft
+        $accent    = Get-AccentColor $item.DaysLeft
+        $badge     = Get-BadgeHtml   $item.DaysLeft
+        $daysText  = Get-DaysText    $item.DaysLeft
         $expiry    = if ($item.ExpiryDate) { $item.ExpiryDate.ToString('dd.MM.yyyy') } else { 'Unbekannt' }
         $appName   = [System.Net.WebUtility]::HtmlEncode($item.AppName)
         $credName  = [System.Net.WebUtility]::HtmlEncode($item.CredentialName)
@@ -555,33 +551,33 @@ function New-HtmlMailBody {
         $appId     = [System.Net.WebUtility]::HtmlEncode($item.AppId)
 
         @"
-        <tr style="background:$bg;">
-          <td style="padding:9px 14px;border-bottom:1px solid #e8e8e8;font-weight:600;">$appName</td>
-          <td style="padding:9px 14px;border-bottom:1px solid #e8e8e8;color:#555;">$source</td>
-          <td style="padding:9px 14px;border-bottom:1px solid #e8e8e8;">$credType</td>
-          <td style="padding:9px 14px;border-bottom:1px solid #e8e8e8;">$credName</td>
-          <td style="padding:9px 14px;border-bottom:1px solid #e8e8e8;font-family:Consolas,monospace;font-size:12px;color:#555;">$appId</td>
-          <td style="padding:9px 14px;border-bottom:1px solid #e8e8e8;white-space:nowrap;">$expiry</td>
-          <td style="padding:9px 14px;border-bottom:1px solid #e8e8e8;white-space:nowrap;">$daysText</td>
-          <td style="padding:9px 14px;border-bottom:1px solid #e8e8e8;text-align:center;">$badge</td>
+        <tr>
+          <td style="padding:11px 14px 11px 16px;border-bottom:1px solid #edf0f3;font-weight:600;color:#06263F;border-left:3px solid $accent;">$appName</td>
+          <td style="padding:11px 14px;border-bottom:1px solid #edf0f3;color:#6b7280;font-size:12px;">$source</td>
+          <td style="padding:11px 14px;border-bottom:1px solid #edf0f3;color:#374151;">$credType</td>
+          <td style="padding:11px 14px;border-bottom:1px solid #edf0f3;color:#374151;max-width:220px;word-break:break-all;">$credName</td>
+          <td style="padding:11px 14px;border-bottom:1px solid #edf0f3;font-family:Consolas,monospace;font-size:11px;color:#6b7280;">$appId</td>
+          <td style="padding:11px 14px;border-bottom:1px solid #edf0f3;white-space:nowrap;color:#374151;">$expiry</td>
+          <td style="padding:11px 14px;border-bottom:1px solid #edf0f3;white-space:nowrap;color:$accent;font-weight:600;">$daysText</td>
+          <td style="padding:11px 14px;border-bottom:1px solid #edf0f3;text-align:center;">$badge</td>
         </tr>
 "@
     }
 
-    function summaryBlock ([int]$count, [string]$label, [string]$bg, [string]$fg) {
+    function summaryBlock ([int]$count, [string]$label, [string]$accent) {
         if ($count -eq 0) { return '' }
         return @"
-    <div style="text-align:center;padding:10px 18px;border-radius:6px;background:$bg;min-width:80px;">
-      <span style="display:block;font-size:26px;font-weight:700;color:$fg;">$count</span>
-      <span style="font-size:11px;text-transform:uppercase;letter-spacing:.5px;color:$fg;">$label</span>
+    <div style="display:flex;align-items:center;gap:12px;padding:12px 20px;border-radius:8px;background:#fff;border:1px solid #e5e7eb;border-left:4px solid $accent;min-width:120px;">
+      <span style="font-size:28px;font-weight:800;color:$accent;line-height:1;">$count</span>
+      <span style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.6px;color:#6b7280;">$label</span>
     </div>
 "@
     }
 
-    $summaryHtml  = summaryBlock $expired.Count  'Abgelaufen' '#fde8e8' '#c0392b'
-    $summaryHtml += summaryBlock $critical.Count 'Kritisch'   '#fde8e8' '#c0392b'
-    $summaryHtml += summaryBlock $warning.Count  'Warnung'    '#fef3cd' '#935200'
-    $summaryHtml += summaryBlock $info.Count     'Hinweis'    '#0F436A' '#1AF0C5'
+    $summaryHtml  = summaryBlock $expired.Count  'Abgelaufen' '#b91c1c'
+    $summaryHtml += summaryBlock $critical.Count 'Kritisch'   '#c2410c'
+    $summaryHtml += summaryBlock $warning.Count  'Warnung'    '#b45309'
+    $summaryHtml += summaryBlock $info.Count     'Hinweis'    '#1AF0C5'
 
     return @"
 <!DOCTYPE html>
@@ -590,53 +586,54 @@ function New-HtmlMailBody {
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
 </head>
-<body style="margin:0;padding:0;background:#f0f2f5;font-family:Segoe UI,Arial,sans-serif;font-size:14px;color:#222;">
-<div style="max-width:980px;margin:28px auto;background:#fff;border-radius:8px;box-shadow:0 2px 12px rgba(0,0,0,.1);overflow:hidden;">
+<body style="margin:0;padding:0;background:#eef1f5;font-family:Segoe UI,Arial,sans-serif;font-size:14px;color:#1f2937;">
+<div style="max-width:1000px;margin:32px auto;background:#fff;border-radius:10px;box-shadow:0 4px 24px rgba(6,38,63,.12);overflow:hidden;">
 
-  <!-- Header -->
-  <div style="background:$summaryColor;color:#fff;padding:22px 28px;display:flex;align-items:center;gap:20px;">
+  <!-- Header – immer Dark Navy, kein dynamisches Rot -->
+  <div style="background:#06263F;padding:24px 32px;display:flex;align-items:center;gap:24px;">
     <div style="flex:1;">
-      <div style="font-size:20px;font-weight:700;margin-bottom:4px;">App Registration &ndash; Ablaufende Credentials</div>
-      <div style="font-size:13px;opacity:.85;">
-        Geprüft am: $dateStr &nbsp;&middot;&nbsp; Schwellenwert: $ThresholdDays Tage &nbsp;&middot;&nbsp; Gesamt: $($Items.Count) Einträge
+      <div style="font-size:9px;font-weight:700;letter-spacing:3px;text-transform:uppercase;color:#1AF0C5;margin-bottom:6px;">Azure Automation</div>
+      <div style="font-size:22px;font-weight:700;color:#fff;margin-bottom:5px;line-height:1.2;">App Registration<br><span style="color:#1AF0C5;">Ablaufende Credentials</span></div>
+      <div style="font-size:12px;color:#7fa8c4;margin-top:8px;">
+        $dateStr &nbsp;&nbsp;|&nbsp;&nbsp; Schwellenwert: $ThresholdDays Tage &nbsp;&nbsp;|&nbsp;&nbsp; $($Items.Count) Einträge
       </div>
     </div>
-    <!-- Vater IT Wortmarke (inline SVG) -->
-    <div style="flex-shrink:0;opacity:.92;">
-      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 260 90" width="130" height="45" aria-label="vater IT">
-        <!-- Rauten-Signet -->
-        <g transform="translate(0,5)">
-          <rect x="18" y="0"  width="18" height="18" rx="2" fill="#fff" transform="rotate(45 27 9)"/>
-          <rect x="36" y="0"  width="18" height="18" rx="2" fill="#fff" transform="rotate(45 45 9)"/>
-          <rect x="9"  y="18" width="18" height="18" rx="2" fill="#fff" transform="rotate(45 18 27)"/>
-          <rect x="27" y="18" width="18" height="18" rx="2" fill="#fff" transform="rotate(45 36 27)"/>
+    <!-- Wortmarke inline SVG -->
+    <div style="flex-shrink:0;">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 80" width="140" height="56" aria-label="vater IT">
+        <g transform="translate(0,4) scale(0.78)">
+          <rect x="0"  y="16" width="20" height="20" fill="none" stroke="#fff" stroke-width="2" transform="rotate(45 10 26)"/>
+          <rect x="22" y="16" width="20" height="20" fill="#fff" opacity=".9" transform="rotate(45 32 26)"/>
+          <rect x="11" y="32" width="20" height="20" fill="#fff" opacity=".7" transform="rotate(45 21 42)"/>
+          <rect x="33" y="0"  width="20" height="20" fill="#1AF0C5" transform="rotate(45 43 10)"/>
         </g>
-        <!-- "vater" Wortmarke -->
-        <text x="78" y="52" font-family="Segoe UI,Arial,sans-serif" font-size="38" font-weight="700" fill="#fff">vater</text>
-        <!-- "IT" Akzent Mint -->
-        <text x="78" y="78" font-family="Segoe UI,Arial,sans-serif" font-size="22" font-weight="700" fill="#1AF0C5" letter-spacing="3">IT</text>
+        <text x="62" y="38" font-family="Segoe UI,Arial,sans-serif" font-size="30" font-weight="700" fill="#fff">vater</text>
+        <text x="62" y="62" font-family="Segoe UI,Arial,sans-serif" font-size="20" font-weight="800" fill="#1AF0C5" letter-spacing="4">IT</text>
       </svg>
     </div>
   </div>
 
+  <!-- Mint-Akzentlinie -->
+  <div style="height:3px;background:linear-gradient(90deg,#1AF0C5 0%,#0F436A 100%);"></div>
+
   <!-- Zusammenfassung -->
-  <div style="display:flex;gap:14px;flex-wrap:wrap;padding:18px 28px;background:#fafafa;border-bottom:1px solid #e8e8e8;">
+  <div style="display:flex;gap:12px;flex-wrap:wrap;padding:20px 32px;background:#f8f9fb;border-bottom:1px solid #e5e7eb;">
 $summaryHtml
   </div>
 
   <!-- Tabelle -->
-  <div style="padding:20px 28px 28px;">
+  <div style="padding:24px 32px 32px;">
     <table style="width:100%;border-collapse:collapse;font-size:13px;">
       <thead>
-        <tr style="background:#06263F;color:#fff;">
-          <th style="padding:10px 14px;text-align:left;font-weight:600;border-bottom:2px solid #0F436A;white-space:nowrap;">Anwendung</th>
-          <th style="padding:10px 14px;text-align:left;font-weight:600;border-bottom:2px solid #0F436A;white-space:nowrap;">Quelle</th>
-          <th style="padding:10px 14px;text-align:left;font-weight:600;border-bottom:2px solid #0F436A;white-space:nowrap;">Typ</th>
-          <th style="padding:10px 14px;text-align:left;font-weight:600;border-bottom:2px solid #0F436A;white-space:nowrap;">Name / Beschreibung</th>
-          <th style="padding:10px 14px;text-align:left;font-weight:600;border-bottom:2px solid #0F436A;white-space:nowrap;">App ID</th>
-          <th style="padding:10px 14px;text-align:left;font-weight:600;border-bottom:2px solid #0F436A;white-space:nowrap;">Ablaufdatum</th>
-          <th style="padding:10px 14px;text-align:left;font-weight:600;border-bottom:2px solid #0F436A;white-space:nowrap;">Verbleibend</th>
-          <th style="padding:10px 14px;text-align:left;font-weight:600;border-bottom:2px solid #1AF0C5;white-space:nowrap;color:#1AF0C5;">Status</th>
+        <tr style="background:#0F436A;color:#fff;">
+          <th style="padding:11px 16px;text-align:left;font-weight:600;font-size:12px;letter-spacing:.3px;border-bottom:2px solid #06263F;white-space:nowrap;">Anwendung</th>
+          <th style="padding:11px 14px;text-align:left;font-weight:600;font-size:12px;letter-spacing:.3px;border-bottom:2px solid #06263F;white-space:nowrap;">Quelle</th>
+          <th style="padding:11px 14px;text-align:left;font-weight:600;font-size:12px;letter-spacing:.3px;border-bottom:2px solid #06263F;white-space:nowrap;">Typ</th>
+          <th style="padding:11px 14px;text-align:left;font-weight:600;font-size:12px;letter-spacing:.3px;border-bottom:2px solid #06263F;white-space:nowrap;">Name / Beschreibung</th>
+          <th style="padding:11px 14px;text-align:left;font-weight:600;font-size:12px;letter-spacing:.3px;border-bottom:2px solid #06263F;white-space:nowrap;">App ID</th>
+          <th style="padding:11px 14px;text-align:left;font-weight:600;font-size:12px;letter-spacing:.3px;border-bottom:2px solid #06263F;white-space:nowrap;">Ablaufdatum</th>
+          <th style="padding:11px 14px;text-align:left;font-weight:600;font-size:12px;letter-spacing:.3px;border-bottom:2px solid #06263F;white-space:nowrap;">Verbleibend</th>
+          <th style="padding:11px 14px;text-align:center;font-weight:600;font-size:12px;letter-spacing:.3px;border-bottom:2px solid #1AF0C5;white-space:nowrap;color:#1AF0C5;">Status</th>
         </tr>
       </thead>
       <tbody>
@@ -646,10 +643,9 @@ $($tableRows -join '')
   </div>
 
   <!-- Footer -->
-  <div style="padding:14px 28px;background:#06263F;border-top:3px solid #1AF0C5;font-size:12px;color:#aac4d8;">
-    Generiert von Azure Automation &nbsp;&middot;&nbsp; Vater Business IT GmbH<br>
-    Bitte erneuern Sie die betroffenen Credentials im Azure-Portal unter
-    <em>Entra ID &rarr; App-Registrierungen &rarr; [App] &rarr; Zertifikate &amp; Geheimnisse</em>.
+  <div style="padding:16px 32px;background:#06263F;font-size:12px;color:#7fa8c4;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;">
+    <span>Generiert von <strong style="color:#1AF0C5;">Azure Automation</strong> &nbsp;&middot;&nbsp; Vater Business IT GmbH</span>
+    <span style="color:#4a7a9b;">Entra ID &rarr; App-Registrierungen &rarr; Zertifikate &amp; Geheimnisse</span>
   </div>
 
 </div>
