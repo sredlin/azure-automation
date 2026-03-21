@@ -348,9 +348,32 @@ function Invoke-TorExitNodesNamedLocation {
                 throw "Failed to update named location '$DisplayName'. $_"
             }
 
-            Write-Host "Updated named location '$DisplayName' ($AddressFamily) (Id: $($existingLocation.Id))." -ForegroundColor Green
-            Write-Host "  Added   ($($added.Count)): $($added -join ', ')" -ForegroundColor Cyan
-            Write-Host "  Removed ($($removed.Count)): $($removed -join ', ')" -ForegroundColor Yellow
+            $unchanged = $newCidrs.Count - $added.Count
+
+            Write-Host ""
+            Write-Host "  [$AddressFamily] $DisplayName" -ForegroundColor White
+            Write-Host "  Id       : $($existingLocation.Id)"
+            Write-Host "  Total    : $($newCidrs.Count) entries  |  Unchanged: $unchanged  |  Added: $($added.Count)  |  Removed: $($removed.Count)"
+
+            $maxDisplay = 20
+            if ($added.Count -gt 0) {
+                Write-Host "  Added (+):" -ForegroundColor Cyan
+                $added | Select-Object -First $maxDisplay | ForEach-Object { Write-Host "    + $_" -ForegroundColor Cyan }
+                if ($added.Count -gt $maxDisplay) {
+                    Write-Host "    ... and $($added.Count - $maxDisplay) more" -ForegroundColor Cyan
+                }
+            }
+            if ($removed.Count -gt 0) {
+                Write-Host "  Removed (-):" -ForegroundColor Yellow
+                $removed | Select-Object -First $maxDisplay | ForEach-Object { Write-Host "    - $_" -ForegroundColor Yellow }
+                if ($removed.Count -gt $maxDisplay) {
+                    Write-Host "    ... and $($removed.Count - $maxDisplay) more" -ForegroundColor Yellow
+                }
+            }
+            if ($added.Count -eq 0 -and $removed.Count -eq 0) {
+                Write-Host "  No changes." -ForegroundColor Gray
+            }
+            Write-Host ""
 
             [PSCustomObject]@{
                 Action          = 'Updated'
@@ -371,7 +394,11 @@ function Invoke-TorExitNodesNamedLocation {
                 throw "Failed to create named location '$DisplayName'. $_"
             }
 
-            Write-Host "Created named location '$DisplayName' ($AddressFamily) (Id: $($result.Id)) with $($newCidrs.Count) entries." -ForegroundColor Green
+            Write-Host ""
+            Write-Host "  [$AddressFamily] $DisplayName" -ForegroundColor White
+            Write-Host "  Id       : $($result.Id)"
+            Write-Host "  Total    : $($newCidrs.Count) entries  |  Created new location – all entries added." -ForegroundColor Green
+            Write-Host ""
 
             [PSCustomObject]@{
                 Action          = 'Created'
