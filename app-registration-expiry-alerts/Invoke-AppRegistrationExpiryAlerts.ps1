@@ -170,7 +170,8 @@ function Get-ExpiringCredentials {
     foreach ($app in $apps) {
 
         foreach ($secret in $app.PasswordCredentials) {
-            if ($null -eq $secret.EndDateTime)    { continue }
+            if ($null -eq $secret)                { continue }
+            if (-not $secret.EndDateTime)         { continue }
             if ($secret.EndDateTime -gt $cutoff)  { continue }
 
             $daysLeft = [math]::Floor(($secret.EndDateTime - $now).TotalDays)
@@ -188,8 +189,9 @@ function Get-ExpiringCredentials {
         }
 
         foreach ($cert in $app.KeyCredentials) {
-            if ($null -eq $cert.EndDateTime)    { continue }
-            if ($cert.EndDateTime -gt $cutoff)  { continue }
+            if ($null -eq $cert)              { continue }
+            if (-not $cert.EndDateTime)       { continue }
+            if ($cert.EndDateTime -gt $cutoff){ continue }
 
             $daysLeft = [math]::Floor(($cert.EndDateTime - $now).TotalDays)
             $results.Add([PSCustomObject]@{
@@ -226,7 +228,8 @@ function Get-ExpiringCredentials {
     foreach ($spn in $spns) {
 
         foreach ($secret in $spn.PasswordCredentials) {
-            if ($null -eq $secret.EndDateTime)    { continue }
+            if ($null -eq $secret)                { continue }
+            if (-not $secret.EndDateTime)         { continue }
             if ($secret.EndDateTime -gt $cutoff)  { continue }
 
             $daysLeft = [math]::Floor(($secret.EndDateTime - $now).TotalDays)
@@ -244,8 +247,9 @@ function Get-ExpiringCredentials {
         }
 
         foreach ($cert in $spn.KeyCredentials) {
-            if ($null -eq $cert.EndDateTime)    { continue }
-            if ($cert.EndDateTime -gt $cutoff)  { continue }
+            if ($null -eq $cert)              { continue }
+            if (-not $cert.EndDateTime)       { continue }
+            if ($cert.EndDateTime -gt $cutoff){ continue }
 
             $daysLeft = [math]::Floor(($cert.EndDateTime - $now).TotalDays)
             $results.Add([PSCustomObject]@{
@@ -542,7 +546,7 @@ function New-HtmlMailBody {
         $bg        = Get-RowBg    $item.DaysLeft
         $badge     = Get-BadgeHtml $item.DaysLeft
         $daysText  = Get-DaysText  $item.DaysLeft
-        $expiry    = $item.ExpiryDate.ToString('dd.MM.yyyy')
+        $expiry    = if ($item.ExpiryDate) { $item.ExpiryDate.ToString('dd.MM.yyyy') } else { 'Unbekannt' }
         $appName   = [System.Net.WebUtility]::HtmlEncode($item.AppName)
         $credName  = [System.Net.WebUtility]::HtmlEncode($item.CredentialName)
         $credType  = [System.Net.WebUtility]::HtmlEncode($item.CredentialType)
@@ -690,7 +694,10 @@ function Send-MailAlert {
         Write-Output "E-Mail-Benachrichtigung gesendet an: $($To -join ', ')"
     }
     catch {
-        Write-Error "E-Mail-Benachrichtigung fehlgeschlagen. $_"
+        $hint = if ($_ -match 'ErrorInvalidUser|404') {
+            " KONFIGURATIONSFEHLER: Das Postfach '$From' existiert nicht im Tenant oder hat keine Lizenz. Bitte AlertMailFrom auf eine gültige Mailbox-UPN setzen (z. B. ein freigegebenes Postfach oder eine lizenzierte User-Mailbox)."
+        } else { '' }
+        Write-Error "E-Mail-Benachrichtigung fehlgeschlagen.$hint $_"
     }
 }
 
