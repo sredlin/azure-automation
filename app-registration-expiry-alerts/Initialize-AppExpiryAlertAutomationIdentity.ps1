@@ -15,6 +15,7 @@ if (-not $graphSPN) { throw "Microsoft Graph Service Principal nicht gefunden." 
 # 3) Benötigte Application Permissions (App Roles)
 $permissions = @(
     'Application.Read.All',   # App Registrations & Service Principals lesen
+    'Organization.Read.All',  # Tenant-Anzeigename auslesen
     'Mail.Send'               # E-Mail über Graph API senden
 )
 

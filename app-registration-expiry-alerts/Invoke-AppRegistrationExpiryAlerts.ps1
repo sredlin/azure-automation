@@ -72,10 +72,9 @@ function Get-OptionalAutomationVariable {
     catch { '' }
 }
 
-$TeamsWebhookUrl  = Get-OptionalAutomationVariable 'AppExpiryTeamsWebhookUrl'
-$AlertMailFrom    = Get-OptionalAutomationVariable 'AlertMailFrom'
-$AlertMailTo      = Get-OptionalAutomationVariable 'AlertMailTo'
-$TenantDisplayName = Get-OptionalAutomationVariable 'TenantDisplayName'
+$TeamsWebhookUrl = Get-OptionalAutomationVariable 'AppExpiryTeamsWebhookUrl'
+$AlertMailFrom   = Get-OptionalAutomationVariable 'AlertMailFrom'
+$AlertMailTo     = Get-OptionalAutomationVariable 'AlertMailTo'
 
 ###############################################################################
 # Hilfsfunktionen
@@ -757,7 +756,6 @@ function Invoke-AppRegistrationExpiryAlerts {
 
     $tenantId   = (Get-MgContext).TenantId
     $tenantName = try { (Get-MgOrganization -Select displayName -ErrorAction Stop).DisplayName } catch { '' }
-    if (-not $tenantName) { $tenantName = $TenantDisplayName }
 
     Write-Output ""
     Write-Output "=== App Registration Expiry Check ==="
