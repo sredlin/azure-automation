@@ -63,8 +63,8 @@ Mindestens ein Kanal muss konfiguriert sein. **Nicht angelegte Variablen** deakt
 | Variable | Typ | Beispielwert | Beschreibung |
 |---|---|---|---|
 | `AppExpiryTeamsWebhookUrl` | String | `https://…` | Teams Incoming-Webhook-URL |
-| `AppExpiryAlertMailFrom` | String | `automation@contoso.com` | Absender-UPN für Graph-Mail |
-| `AppExpiryAlertMailTo` | String | `it@contoso.com,admin@contoso.com` | Empfänger, kommagetrennt |
+| `AlertMailFrom` | String | `noreply@contoso.com` | Absender-UPN für Graph-Mail |
+| `AlertMailTo` | String | `it@contoso.com,admin@contoso.com` | Empfänger, kommagetrennt |
 
 > Sind **beide** Kanäle konfiguriert, werden beide Benachrichtigungen gesendet.
 > Ist **kein** Kanal konfiguriert, gibt das Runbook eine Warnung aus und läuft trotzdem durch.

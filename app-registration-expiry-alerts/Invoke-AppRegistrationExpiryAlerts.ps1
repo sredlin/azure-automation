@@ -73,8 +73,8 @@ function Get-OptionalAutomationVariable {
 }
 
 $TeamsWebhookUrl = Get-OptionalAutomationVariable 'AppExpiryTeamsWebhookUrl'
-$AlertMailFrom   = Get-OptionalAutomationVariable 'AppExpiryAlertMailFrom'
-$AlertMailTo     = Get-OptionalAutomationVariable 'AppExpiryAlertMailTo'
+$AlertMailFrom   = Get-OptionalAutomationVariable 'AlertMailFrom'
+$AlertMailTo     = Get-OptionalAutomationVariable 'AlertMailTo'
 
 ###############################################################################
 # Hilfsfunktionen
@@ -709,9 +709,9 @@ function Invoke-AppRegistrationExpiryAlerts {
     [CmdletBinding()]
     param(
         [Parameter(Mandatory)] [int]$ThresholdDays,
-        [Parameter(Mandatory)] [string]$TeamsWebhookUrl,
-        [Parameter(Mandatory)] [string]$MailFrom,
-        [Parameter(Mandatory)] [string[]]$MailTo,
+        [string]$TeamsWebhookUrl = '',
+        [string]$MailFrom        = '',
+        [string[]]$MailTo        = @(),
         [switch]$SkipTenantConfirmation,
         [string]$ExpectedTenantId
     )
