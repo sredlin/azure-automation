@@ -1,3 +1,6 @@
+#Requires -Version 7
+#Requires -Modules Microsoft.Graph.Authentication, Microsoft.Graph.Identity.SignIns
+
 <#
 .SYNOPSIS
     Automates the maintenance of Entra ID Conditional Access Named Locations
@@ -18,21 +21,26 @@
     - Non-existent Named Locations are created
     - No duplicate entries are created
 
-.REQUIRES
-    - PowerShell 7+
-    - Microsoft.Graph.Authentication
-    - Microsoft.Graph.Identity.SignIns
-    - Microsoft Graph Application Permission:
-        * Policy.ReadWrite.ConditionalAccess
-
-.AUTHOR
-    Stefan Redlin
+.NOTES
+    Author:      Stefan Redlin
+    Permissions: Policy.ReadWrite.ConditionalAccess
 #>
 
 ### Initialize Microsoft Graph connection using Managed Identity ###
-Connect-MgGraph -Identity -NoWelcome
-# Replace with your expected TenantId
-$ExpectedTenantId = Get-AutomationVariable -Name 'ExpectedTenantId'
+try {
+    Connect-MgGraph -Identity -NoWelcome -ErrorAction Stop
+}
+catch {
+    throw "Failed to connect to Microsoft Graph via Managed Identity. $_"
+}
+
+# Retrieved from Azure Automation shared variable
+try {
+    $ExpectedTenantId = Get-AutomationVariable -Name 'ExpectedTenantId' -ErrorAction Stop
+}
+catch {
+    throw "Failed to retrieve automation variable 'ExpectedTenantId'. $_"
+}
 
 function Get-TorExitNodeIPv4List {
     <#
@@ -62,7 +70,7 @@ function Get-TorExitNodeIPv4List {
     $uri = 'https://raw.githubusercontent.com/Enkidu-6/tor-relay-lists/main/exits-v4.txt'
 
     try {
-        $response = Invoke-RestMethod -Method Get -Uri $uri -ErrorAction Stop
+        $response = Invoke-RestMethod -Method Get -Uri $uri -TimeoutSec 30 -ErrorAction Stop
     }
     catch {
         throw "Failed to retrieve the Tor exit node list from '$uri'. $_"
@@ -70,7 +78,12 @@ function Get-TorExitNodeIPv4List {
 
     $response -split "`n" |
     ForEach-Object { $_.Trim() } |
-    Where-Object { $_ -and ($_ -match '^\d{1,3}(\.\d{1,3}){3}$') } |
+    Where-Object {
+        if (-not $_) { return $false }
+        $addr = [System.Net.IPAddress]::new(0)
+        [System.Net.IPAddress]::TryParse($_, [ref]$addr) -and
+            $addr.AddressFamily -eq [System.Net.Sockets.AddressFamily]::InterNetwork
+    } |
     ForEach-Object { "{0}/32" -f $_ } |
     Sort-Object -Unique
 }
@@ -95,7 +108,7 @@ function Get-TorExitNodeIPv6List {
             Author:   Stefan Redlin
 
         .EXAMPLE
-            Get-TorExitNodeIPv4List
+            Get-TorExitNodeIPv6List
     #>
     [CmdletBinding()]
     param ()
@@ -103,7 +116,7 @@ function Get-TorExitNodeIPv6List {
     $uri = 'https://raw.githubusercontent.com/Enkidu-6/tor-relay-lists/main/exits-v6.txt'
 
     try {
-        $response = Invoke-RestMethod -Method Get -Uri $uri -ErrorAction Stop
+        $response = Invoke-RestMethod -Method Get -Uri $uri -TimeoutSec 30 -ErrorAction Stop
     }
     catch {
         throw "Failed to retrieve the Tor IPv6 exit node list from '$uri'. $_"
@@ -111,7 +124,12 @@ function Get-TorExitNodeIPv6List {
 
     $response -split "`n" |
     ForEach-Object { $_.Trim() } |
-    Where-Object { $_ -and ($_ -match '^[0-9A-Fa-f:]+$') } |
+    Where-Object {
+        if (-not $_) { return $false }
+        $addr = [System.Net.IPAddress]::new(0)
+        [System.Net.IPAddress]::TryParse($_, [ref]$addr) -and
+            $addr.AddressFamily -eq [System.Net.Sockets.AddressFamily]::InterNetworkV6
+    } |
     ForEach-Object { "{0}/128" -f $_ } |
     Sort-Object -Unique
 }
@@ -180,11 +198,8 @@ function Confirm-MgTenantContext {
         throw "Connected tenant mismatch. Expected TenantId '$ExpectedTenantId' but current context is '$($ctx.TenantId)'."
     }
 
-    # Single-line status message (always)
-    Write-Host (
-        "Successfully connected with account '{0}' to tenant '{1}' (Environment: {2})." -f `
-            $ctx.Account, $ctx.TenantId, $ctx.Environment
-    ) -ForegroundColor Green
+    $identity = if ($ctx.Account) { "account '$($ctx.Account)'" } else { "Managed Identity" }
+    Write-Output "Successfully connected as $identity to tenant '$($ctx.TenantId)' (Environment: $($ctx.Environment))."
 
     if (-not $SkipTenantConfirmation) {
         $answer = Read-Host "Is this the correct tenant? Type 'Y' to proceed"
@@ -192,8 +207,6 @@ function Confirm-MgTenantContext {
             throw "Aborted by user. Tenant context not confirmed."
         }
     }
-
-    return
 }
 
 function Invoke-TorExitNodesNamedLocation {
@@ -222,7 +235,7 @@ function Invoke-TorExitNodesNamedLocation {
         None
 
     .OUTPUTS
-        PSCustomObject with action details (Created or Updated) for each named location.
+        None. Progress and change details are written directly to the output stream.
 
     .EXAMPLE
         Invoke-TorExitNodesNamedLocation
@@ -251,7 +264,6 @@ function Invoke-TorExitNodesNamedLocation {
 
     .NOTES
         Author: Stefan Redlin
-        Requires: - Microsoft.Graph.Identity.SignIns - Microsoft.Graph.Authentication - Connect-MgGraph with Policy.ReadWrite.ConditionalAccess permission
     #>
 
     [CmdletBinding()]
@@ -263,15 +275,15 @@ function Invoke-TorExitNodesNamedLocation {
         [string]$ExpectedTenantId
     )
 
+    if ($IPv4 -and $IPv6) {
+        throw "You cannot use -IPv4 and -IPv6 together, use either one or none to do both."
+    }
+
     Confirm-MgTenantContext -SkipTenantConfirmation:$SkipTenantConfirmation -ExpectedTenantId $ExpectedTenantId
 
     # Internal constants for named location display names
     $displayNameIPv4 = 'Tor Exit Nodes IPv4'
     $displayNameIPv6 = 'Tor Exit Nodes IPv6'
-
-    if ($IPv4 -and $IPv6) {
-        throw "You cannot use -IPv4 and -IPv6 together, use either one or none to do both."
-    }
 
     $doV4 = -not $IPv6
     $doV6 = -not $IPv4
@@ -284,16 +296,22 @@ function Invoke-TorExitNodesNamedLocation {
             [Parameter(Mandatory)][ValidateSet('IPv4', 'IPv6')][string]$AddressFamily
         )
 
-        if (-not $Cidrs -or $Cidrs.Count -eq 0) {
+        if (-not $Cidrs) {
             throw "Tor exit node list for $AddressFamily is empty – aborting for '$DisplayName'."
         }
 
         $newCidrs = $Cidrs | ForEach-Object { $_.ToLower() } | Sort-Object -Unique
 
         Write-Verbose "Checking for existing named location '$DisplayName' ($AddressFamily)..."
-        $existingLocation = Get-MgIdentityConditionalAccessNamedLocation -All |
-        Where-Object { $_.DisplayName -eq $DisplayName } |
-        Select-Object -First 1
+
+        try {
+            $existingLocation = Get-MgIdentityConditionalAccessNamedLocation -All -ErrorAction Stop |
+                Where-Object { $_.DisplayName -eq $DisplayName } |
+                Select-Object -First 1
+        }
+        catch {
+            throw "Failed to query named locations from Microsoft Graph. $_"
+        }
 
         $rangeType = if ($AddressFamily -eq 'IPv4') { '#microsoft.graph.iPv4CidrRange' } else { '#microsoft.graph.iPv6CidrRange' }
 
@@ -309,45 +327,94 @@ function Invoke-TorExitNodesNamedLocation {
         }
 
         if ($existingLocation) {
-            $null = Update-MgIdentityConditionalAccessNamedLocation -NamedLocationId $existingLocation.Id -BodyParameter $body
-            Write-Host "Updated named location '$DisplayName' ($AddressFamily) (Id: $($existingLocation.Id))." -ForegroundColor Green
-
-            [PSCustomObject]@{
-                Action          = 'Updated'
-                DisplayName     = $DisplayName
-                AddressFamily   = $AddressFamily
-                NamedLocationId = $existingLocation.Id
+            try {
+                $rawLocation = Invoke-MgGraphRequest `
+                    -Method GET `
+                    -Uri "https://graph.microsoft.com/v1.0/identity/conditionalAccess/namedLocations/$($existingLocation.Id)" `
+                    -ErrorAction Stop
             }
+            catch {
+                throw "Failed to retrieve existing named location '$DisplayName' details. $_"
+            }
+
+            $existingCidrs = @(
+                $rawLocation.ipRanges |
+                    ForEach-Object { $_['cidrAddress'] } |
+                    Where-Object { $_ } |
+                    ForEach-Object { $_.ToLower() } |
+                    Sort-Object -Unique
+            )
+
+            $added   = @($newCidrs | Where-Object { $_ -notin $existingCidrs })
+            $removed = @($existingCidrs | Where-Object { $_ -notin $newCidrs })
+
+            try {
+                $null = Update-MgIdentityConditionalAccessNamedLocation `
+                    -NamedLocationId $existingLocation.Id `
+                    -BodyParameter $body `
+                    -ErrorAction Stop
+            }
+            catch {
+                throw "Failed to update named location '$DisplayName'. $_"
+            }
+
+            $unchanged = $newCidrs.Count - $added.Count
+
+            Write-Output ""
+            Write-Output "  [$AddressFamily] $DisplayName"
+            Write-Output "  Id       : $($existingLocation.Id)"
+            Write-Output "  Total    : $($newCidrs.Count) entries  |  Unchanged: $unchanged  |  Added: $($added.Count)  |  Removed: $($removed.Count)"
+
+            $maxDisplay = 20
+            if ($added.Count -gt 0) {
+                Write-Output "  Added (+):"
+                $added | Select-Object -First $maxDisplay | ForEach-Object { Write-Output "    + $_" }
+                if ($added.Count -gt $maxDisplay) {
+                    Write-Output "    ... and $($added.Count - $maxDisplay) more"
+                }
+            }
+            if ($removed.Count -gt 0) {
+                Write-Output "  Removed (-):"
+                $removed | Select-Object -First $maxDisplay | ForEach-Object { Write-Output "    - $_" }
+                if ($removed.Count -gt $maxDisplay) {
+                    Write-Output "    ... and $($removed.Count - $maxDisplay) more"
+                }
+            }
+            if ($added.Count -eq 0 -and $removed.Count -eq 0) {
+                Write-Output "  No changes."
+            }
+            Write-Output ""
         }
         else {
-            $result = New-MgIdentityConditionalAccessNamedLocation -BodyParameter $body
-            Write-Host "Created named location '$DisplayName' ($AddressFamily) (Id: $($result.Id))." -ForegroundColor Green
-
-            [PSCustomObject]@{
-                Action          = 'Created'
-                DisplayName     = $DisplayName
-                AddressFamily   = $AddressFamily
-                NamedLocationId = $result.Id
+            try {
+                $result = New-MgIdentityConditionalAccessNamedLocation `
+                    -BodyParameter $body `
+                    -ErrorAction Stop
             }
+            catch {
+                throw "Failed to create named location '$DisplayName'. $_"
+            }
+
+            Write-Output ""
+            Write-Output "  [$AddressFamily] $DisplayName"
+            Write-Output "  Id       : $($result.Id)"
+            Write-Output "  Total    : $($newCidrs.Count) entries  |  Created new location – all entries added."
+            Write-Output ""
         }
     }
-
-    $results = @()
 
     if ($doV4) {
         Write-Verbose "Retrieving Tor exit node IPv4 list..."
         $cidrListV4 = Get-TorExitNodeIPv4List
-        $results += Update-OrCreateTorNamedLocation -DisplayName $displayNameIPv4 -Cidrs $cidrListV4 -AddressFamily 'IPv4'
+        Update-OrCreateTorNamedLocation -DisplayName $displayNameIPv4 -Cidrs $cidrListV4 -AddressFamily 'IPv4'
     }
 
     if ($doV6) {
         Write-Verbose "Retrieving Tor exit node IPv6 list..."
         $cidrListV6 = Get-TorExitNodeIPv6List
-        $results += Update-OrCreateTorNamedLocation -DisplayName $displayNameIPv6 -Cidrs $cidrListV6 -AddressFamily 'IPv6'
+        Update-OrCreateTorNamedLocation -DisplayName $displayNameIPv6 -Cidrs $cidrListV6 -AddressFamily 'IPv6'
     }
-
-    return $results
 }
-# Excecute the function with desired parameters
 
+# Execute the function with desired parameters
 Invoke-TorExitNodesNamedLocation -SkipTenantConfirmation -ExpectedTenantId $ExpectedTenantId
