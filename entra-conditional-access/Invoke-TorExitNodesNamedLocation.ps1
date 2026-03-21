@@ -198,10 +198,8 @@ function Confirm-MgTenantContext {
         throw "Connected tenant mismatch. Expected TenantId '$ExpectedTenantId' but current context is '$($ctx.TenantId)'."
     }
 
-    Write-Output (
-        "Successfully connected with account '{0}' to tenant '{1}' (Environment: {2})." -f `
-            $ctx.Account, $ctx.TenantId, $ctx.Environment
-    )
+    $identity = if ($ctx.Account) { "account '$($ctx.Account)'" } else { "Managed Identity" }
+    Write-Output "Successfully connected as $identity to tenant '$($ctx.TenantId)' (Environment: $($ctx.Environment))."
 
     if (-not $SkipTenantConfirmation) {
         $answer = Read-Host "Is this the correct tenant? Type 'Y' to proceed"
