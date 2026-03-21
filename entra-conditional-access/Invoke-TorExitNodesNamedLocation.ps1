@@ -329,6 +329,15 @@ function Invoke-TorExitNodesNamedLocation {
         }
 
         if ($existingLocation) {
+            $existingCidrs = $existingLocation.IpRanges |
+                ForEach-Object { $_.AdditionalProperties['cidrAddress'] } |
+                Where-Object { $_ } |
+                ForEach-Object { $_.ToLower() } |
+                Sort-Object -Unique
+
+            $added   = @($newCidrs | Where-Object { $_ -notin $existingCidrs })
+            $removed = @($existingCidrs | Where-Object { $_ -notin $newCidrs })
+
             try {
                 $null = Update-MgIdentityConditionalAccessNamedLocation `
                     -NamedLocationId $existingLocation.Id `
@@ -340,12 +349,16 @@ function Invoke-TorExitNodesNamedLocation {
             }
 
             Write-Host "Updated named location '$DisplayName' ($AddressFamily) (Id: $($existingLocation.Id))." -ForegroundColor Green
+            Write-Host "  Added   ($($added.Count)): $($added -join ', ')" -ForegroundColor Cyan
+            Write-Host "  Removed ($($removed.Count)): $($removed -join ', ')" -ForegroundColor Yellow
 
             [PSCustomObject]@{
                 Action          = 'Updated'
                 DisplayName     = $DisplayName
                 AddressFamily   = $AddressFamily
                 NamedLocationId = $existingLocation.Id
+                Added           = $added
+                Removed         = $removed
             }
         }
         else {
@@ -358,13 +371,15 @@ function Invoke-TorExitNodesNamedLocation {
                 throw "Failed to create named location '$DisplayName'. $_"
             }
 
-            Write-Host "Created named location '$DisplayName' ($AddressFamily) (Id: $($result.Id))." -ForegroundColor Green
+            Write-Host "Created named location '$DisplayName' ($AddressFamily) (Id: $($result.Id)) with $($newCidrs.Count) entries." -ForegroundColor Green
 
             [PSCustomObject]@{
                 Action          = 'Created'
                 DisplayName     = $DisplayName
                 AddressFamily   = $AddressFamily
                 NamedLocationId = $result.Id
+                Added           = $newCidrs
+                Removed         = @()
             }
         }
     }
