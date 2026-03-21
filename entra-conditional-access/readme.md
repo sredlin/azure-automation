@@ -1,23 +1,16 @@
 # Entra ID Conditional Access – Tor Exit Nodes Automation
 
-This folder contains two PowerShell scripts used together to automate and securely maintain
-**Entra ID Conditional Access Named Locations** based on current **Tor Exit Node** IP addresses.
-
-Both scripts are designed for **Azure Automation** and **Managed Identity** usage.
+Automates and securely maintains **Entra ID Conditional Access Named Locations** based on current
+**Tor Exit Node** IP addresses. Both scripts are designed for **Azure Automation** with **Managed Identity**.
 
 ---
 
-## Files in this folder
+## Files
 
-### 1) Initialize-NamedLocationAutomationIdentity.ps1
+### 1. Initialize-NamedLocationAutomationIdentity.ps1
 
-**Purpose**
-
-Initializes the Managed Identity (Service Principal) that is used by Azure Automation
-to manage Conditional Access Named Locations.
-
-The script assigns the required **Microsoft Graph Application Permissions**
-to the Managed Identity so that automation can modify Conditional Access objects.
+One-time setup script. Assigns the required Microsoft Graph application permissions to the Managed
+Identity so that the runbook can modify Conditional Access objects.
 
 **What it does**
 
@@ -26,170 +19,164 @@ to the Managed Identity so that automation can modify Conditional Access objects
 - Assigns the following Microsoft Graph application permissions:
   - `Policy.ReadWrite.ConditionalAccess`
   - `Policy.Read.All`
-- Is idempotent (existing assignments are detected and not duplicated)
+- Idempotent – existing assignments are detected and not duplicated
 
 **When to run**
 
-- One-time setup
+- Initial setup
+- After moving the automation to a new tenant or Automation Account
 - When permissions need to be revalidated or restored
-- When moving the automation to a new tenant or Automation Account
 
 ---
 
-### 2) Invoke-TorExitNodesNamedLocation.ps1
+### 2. Invoke-TorExitNodesNamedLocation.ps1
 
-**Purpose**
-
-Maintains Entra ID Conditional Access Named Locations containing current
-Tor Exit Node IP ranges (IPv4 and IPv6).
+Runbook script. Keeps the Tor Exit Node Named Locations up to date on every execution.
 
 **What it does**
 
-- Authenticates to Microsoft Graph using **Managed Identity**
-- Validates the active tenant context (safety guardrail)
+- Authenticates via **Managed Identity**
+- Validates the active tenant against `ExpectedTenantId` (safety guardrail)
 - Downloads current Tor exit node lists:
-  - IPv4 → converted to `/32`
-  - IPv6 → converted to `/128`
-- Creates or updates the following Named Locations:
+  - IPv4 → `/32` CIDR notation
+  - IPv6 → `/128` CIDR notation
+- Creates or updates the Named Locations:
   - `Tor Exit Nodes IPv4`
   - `Tor Exit Nodes IPv6`
-- Ensures idempotent execution (no duplicate IP ranges)
-
-**Designed for**
-
-- Azure Automation Runbooks
-- Scheduled execution (e.g. daily)
-- CI/CD pipelines with Managed Identity
+- Idempotent – no duplicate IP ranges, no unnecessary updates
 
 ---
 
-## Execution order (important)
+## Execution Order
 
-1. **Run once**
-   ```text
+1. **Run once** – grant permissions to the Managed Identity:
+   ```
    Initialize-NamedLocationAutomationIdentity.ps1
    ```
-   Grants the required Microsoft Graph permissions to the Managed Identity.
 
-2. **Run repeatedly**
-   ```text
+2. **Run on schedule** – keep Named Locations current:
+   ```
    Invoke-TorExitNodesNamedLocation.ps1
    ```
-   Keeps the Tor Exit Node Named Locations up to date.
 
 ---
 
-## Azure Automation prerequisites
+## Azure Automation Prerequisites
 
 ### PowerShell Runtime
+
 - PowerShell 7+
 
 ### Required Modules
+
 - `Microsoft.Graph.Authentication`
 - `Microsoft.Graph.Identity.SignIns`
 
 ### Managed Identity
-- System-assigned or user-assigned Managed Identity enabled
-- Admin consent granted for:
-  - `Policy.ReadWrite.ConditionalAccess`
+
+- System-assigned or user-assigned Managed Identity enabled on the Automation Account
+- Admin consent granted for `Policy.ReadWrite.ConditionalAccess`
 
 ### Automation Variable
 
-Create the following Automation Variable:
+| Name             | Type   | Encrypted |
+|------------------|--------|-----------|
+| ExpectedTenantId | String | Yes       |
 
-| Name              | Type   | Encrypted |
-|-------------------|--------|-----------|
-| ExpectedTenantId  | String | Yes       |
-
-This variable is used as a guardrail to prevent execution in the wrong tenant.
+Used as a guardrail to prevent accidental execution in the wrong tenant.
 
 ---
 
-## Security considerations
+## Example Output
+
+### First run (Named Locations do not exist yet)
+
+```
+Successfully connected as Managed Identity to tenant '9018152c-...' (Environment: Global).
+
+  [IPv4] Tor Exit Nodes IPv4
+  Id       : <guid>
+  Total    : 1234 entries  |  Created new location – all entries added.
+
+  [IPv6] Tor Exit Nodes IPv6
+  Id       : <guid>
+  Total    : 567 entries  |  Created new location – all entries added.
+```
+
+### Subsequent run (Named Locations already exist)
+
+```
+Successfully connected as Managed Identity to tenant '9018152c-...' (Environment: Global).
+
+  [IPv4] Tor Exit Nodes IPv4
+  Id       : <guid>
+  Total    : 1237 entries  |  Unchanged: 1231  |  Added: 6  |  Removed: 3
+  Added (+):
+    + 1.2.3.4/32
+    + 5.6.7.8/32
+    ...
+  Removed (-):
+    - 9.10.11.12/32
+
+  [IPv6] Tor Exit Nodes IPv6
+  Id       : <guid>
+  Total    : 567 entries  |  Unchanged: 567  |  Added: 0  |  Removed: 0
+  No changes.
+```
+
+---
+
+## Recommended Scheduling
+
+Run `Invoke-TorExitNodesNamedLocation.ps1` every **3 hours** (or more frequently if your security
+policy requires rapid updates).
+
+---
+
+## Data Source
+
+Tor exit node lists are retrieved from:
+[https://github.com/Enkidu-6/tor-relay-lists](https://github.com/Enkidu-6/tor-relay-lists)
+
+---
+
+## Security Considerations
 
 - No credentials or secrets are stored in the scripts
-- Authentication is performed exclusively via Managed Identity
+- Authentication exclusively via Managed Identity
 - Tenant validation prevents accidental cross-tenant changes
 - Permissions are scoped to Conditional Access only
 
 ---
 
-## Recommended scheduling
+## Monitoring & Alerts
 
-Run `Invoke-TorExitNodesNamedLocation.ps1`:
-- Every three hours (recommended)
-- Or more frequently if your security policy requires rapid updates
+This automation depends on external services (Tor exit node source, Microsoft Graph). Configure a
+Log Analytics-based alert to detect failures between scheduled executions.
 
----
+### Diagnostic Settings
 
-## Data source
+Enable **JobLogs** on the Azure Automation Account and send them to a Log Analytics workspace.
 
-Tor Exit Node lists are retrieved from:
+### Alert Rule: Tor Named Location Automation Failed
 
-- https://github.com/Enkidu-6/tor-relay-lists
+| Setting                  | Value                                           |
+|--------------------------|-------------------------------------------------|
+| Alert name               | `[ALERT] Tor Named Location Automation Failed`  |
+| Severity                 | 1 – Error                                       |
+| Scope                    | Automation Account `aa-namedlocations`          |
+| Measure                  | Table rows                                      |
+| Aggregation type         | Count                                           |
+| Aggregation granularity  | 5 minutes                                       |
+| Operator                 | Greater than                                    |
+| Threshold                | 0                                               |
+| Evaluation frequency     | 5 minutes                                       |
+| Auto-mitigate            | Disabled                                        |
+| Action group             | `AutomationError`                               |
 
----
+### KQL Query
 
-## Monitoring & Alerts (Recommended)
-
-This automation relies on external dependencies (for example, the Tor
-Exit Node data source and Microsoft Graph APIs). To ensure operational
-reliability, a **Log Analytics--based alert** is configured so that
-failures are detected even when the runbook executes only every few
-hours.
-
-### Log Analytics Integration (Azure Automation → Diagnostic Settings)
-
-The Azure Automation Account must send diagnostic logs to a Log
-Analytics workspace.
-
-Enable at minimum: - **JobLogs**
-
-These logs are required for detecting failed runbook executions.
-
-------------------------------------------------------------------------
-
-## Alert Rule: Tor Named Location Automation Failed
-
-The following alert rule monitors the Automation Account for **failed
-runbook jobs**.
-
-### Alert Characteristics
-
-  -----------------------------------------------------------------------
-  Setting                             Value
-  ----------------------------------- -----------------------------------
-  Alert name                          **\[ALERT\] Tor Named Location
-                                      Automation Failed**
-
-  Severity                            **1 (Error / Critical)**
-
-  Scope                               Automation Account
-                                      `aa-namedlocations`
- 
-  Measure                             **Table rows**
-
-  Aggregation Type                    **Count**
-
-  Aggregation granularity             **5 minutes**
-
-  Operator                            **Greater than**
-  
-  Threshold value                     **0**
-
-  Frequency of evaluation             **5 minutes**
-
-  Auto-mitigate                       Disabled
-
-  Action group                        `AutomationError`
-
-  Notification subject                **\[ALERT\] Tor Named Location
-                                      Automation Failed**
-  -----------------------------------------------------------------------
-
-### KQL Query Used
-
-``` kusto
+```kusto
 AzureDiagnostics
 | where ResourceProvider == "MICROSOFT.AUTOMATION"
 | where Category == "JobLogs"
@@ -197,11 +184,8 @@ AzureDiagnostics
 | where TimeGenerated >= ago(10m)
 ```
 
-### Alert Trigger Logic
-
-- The alert is evaluated every **5 minutes**
-- The query always scans the **last 10 minutes**
-- If **at least one failed job** is found, the alert triggers immediately
+The query scans the last 10 minutes and is evaluated every 5 minutes. At least one failed job
+triggers the alert immediately.
 
 ---
 
