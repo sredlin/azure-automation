@@ -47,15 +47,27 @@ Die Berechtigungen werden mit `Initialize-AppExpiryAlertAutomationIdentity.ps1` 
 
 ## Automation-Variablen
 
-Alle Variablen müssen im Azure Automation Account unter **Freigegebene Ressourcen → Variablen** angelegt werden.
+Die Variablen werden im Azure Automation Account unter **Freigegebene Ressourcen → Variablen** angelegt.
+
+### Erforderlich
 
 | Variable | Typ | Beispielwert | Beschreibung |
 |---|---|---|---|
 | `ExpectedTenantId` | String | `xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx` | Mandanten-ID als Sicherheitsprüfung |
 | `AppExpiryAlertThresholdDays` | Integer | `60` | Vorwarnzeit in Tagen |
-| `AppExpiryTeamsWebhookUrl` | String | `https://…` | Teams Incoming-Webhook-URL (leer lassen = deaktiviert) |
-| `AppExpiryAlertMailFrom` | String | `automation@contoso.com` | Absender-UPN für den E-Mail-Versand (leer = deaktiviert) |
-| `AppExpiryAlertMailTo` | String | `it@contoso.com,admin@contoso.com` | Empfänger, kommagetrennt (leer = deaktiviert) |
+
+### Optional – Benachrichtigungskanäle
+
+Mindestens ein Kanal muss konfiguriert sein. **Nicht angelegte Variablen** deaktivieren den jeweiligen Kanal automatisch – es ist kein leerer Platzhalter nötig.
+
+| Variable | Typ | Beispielwert | Beschreibung |
+|---|---|---|---|
+| `AppExpiryTeamsWebhookUrl` | String | `https://…` | Teams Incoming-Webhook-URL |
+| `AppExpiryAlertMailFrom` | String | `automation@contoso.com` | Absender-UPN für Graph-Mail |
+| `AppExpiryAlertMailTo` | String | `it@contoso.com,admin@contoso.com` | Empfänger, kommagetrennt |
+
+> Sind **beide** Kanäle konfiguriert, werden beide Benachrichtigungen gesendet.
+> Ist **kein** Kanal konfiguriert, gibt das Runbook eine Warnung aus und läuft trotzdem durch.
 
 ---
 

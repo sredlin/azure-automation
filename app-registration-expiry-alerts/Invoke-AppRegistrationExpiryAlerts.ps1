@@ -32,12 +32,17 @@
       Application.Read.All   – App Registrations & SPNs lesen
       Mail.Send              – E-Mail versenden
 
-    Automation-Variablen (alle erforderlich):
-      ExpectedTenantId              – Mandanten-ID zur Sicherheitsprüfung
-      AppExpiryAlertThresholdDays   – Vorwarnung in Tagen (z. B. 60)
-      AppExpiryTeamsWebhookUrl      – Teams Incoming-Webhook-URL (leer = deaktiviert)
-      AppExpiryAlertMailFrom        – Absender-UPN für Graph-Mail (leer = deaktiviert)
-      AppExpiryAlertMailTo          – Empfänger, kommagetrennt (leer = deaktiviert)
+    Automation-Variablen:
+      Erforderlich:
+        ExpectedTenantId              – Mandanten-ID zur Sicherheitsprüfung
+        AppExpiryAlertThresholdDays   – Vorwarnung in Tagen (z. B. 60)
+      Optional (mindestens eine Gruppe muss gesetzt sein):
+        AppExpiryTeamsWebhookUrl      – Teams Incoming-Webhook-URL
+        AppExpiryAlertMailFrom        – Absender-UPN für Graph-Mail
+        AppExpiryAlertMailTo          – Empfänger, kommagetrennt
+
+    Nicht angelegte optionale Variablen deaktivieren den jeweiligen Kanal.
+    Leere Strings haben denselben Effekt.
 #>
 
 ### Microsoft Graph verbinden ###
@@ -49,16 +54,27 @@ catch {
 }
 
 ### Automation-Variablen einlesen ###
+
+# Erforderliche Variablen – fehlen sie, bricht das Runbook sofort ab.
 try {
-    $ExpectedTenantId  = Get-AutomationVariable -Name 'ExpectedTenantId'                -ErrorAction Stop
-    $ThresholdDays     = [int](Get-AutomationVariable -Name 'AppExpiryAlertThresholdDays' -ErrorAction Stop)
-    $TeamsWebhookUrl   = Get-AutomationVariable -Name 'AppExpiryTeamsWebhookUrl'        -ErrorAction Stop
-    $AlertMailFrom     = Get-AutomationVariable -Name 'AppExpiryAlertMailFrom'          -ErrorAction Stop
-    $AlertMailTo       = Get-AutomationVariable -Name 'AppExpiryAlertMailTo'            -ErrorAction Stop
+    $ExpectedTenantId = Get-AutomationVariable -Name 'ExpectedTenantId'                -ErrorAction Stop
+    $ThresholdDays    = [int](Get-AutomationVariable -Name 'AppExpiryAlertThresholdDays' -ErrorAction Stop)
 }
 catch {
-    throw "Fehler beim Lesen der Automation-Variablen. $_"
+    throw "Fehler beim Lesen der erforderlichen Automation-Variablen. $_"
 }
+
+# Optionale Variablen – nicht vorhandene oder leere Variablen deaktivieren
+# den jeweiligen Benachrichtigungskanal, ohne das Runbook abzubrechen.
+function Get-OptionalAutomationVariable {
+    param([string]$Name)
+    try   { Get-AutomationVariable -Name $Name -ErrorAction Stop }
+    catch { '' }
+}
+
+$TeamsWebhookUrl = Get-OptionalAutomationVariable 'AppExpiryTeamsWebhookUrl'
+$AlertMailFrom   = Get-OptionalAutomationVariable 'AppExpiryAlertMailFrom'
+$AlertMailTo     = Get-OptionalAutomationVariable 'AppExpiryAlertMailTo'
 
 ###############################################################################
 # Hilfsfunktionen
@@ -731,14 +747,22 @@ function Invoke-AppRegistrationExpiryAlerts {
     }
     Write-Output ""
 
-    if ($TeamsWebhookUrl) {
+    $teamsEnabled = -not [string]::IsNullOrWhiteSpace($TeamsWebhookUrl)
+    $mailEnabled  = (-not [string]::IsNullOrWhiteSpace($MailFrom)) -and
+                    ($MailTo | Where-Object { $_ }).Count -gt 0
+
+    if (-not $teamsEnabled -and -not $mailEnabled) {
+        Write-Warning "Kein Benachrichtigungskanal konfiguriert. Bitte mindestens eine der Variablen setzen: AppExpiryTeamsWebhookUrl  –oder–  AppExpiryAlertMailFrom + AppExpiryAlertMailTo."
+    }
+
+    if ($teamsEnabled) {
         Send-TeamsAlert -Items $expiringItems -ThresholdDays $ThresholdDays -WebhookUrl $TeamsWebhookUrl
     }
     else {
         Write-Output "Teams-Webhook nicht konfiguriert – übersprungen."
     }
 
-    if ($MailFrom -and $MailTo -and $MailTo.Count -gt 0) {
+    if ($mailEnabled) {
         Send-MailAlert -Items $expiringItems -ThresholdDays $ThresholdDays -From $MailFrom -To $MailTo
     }
     else {
