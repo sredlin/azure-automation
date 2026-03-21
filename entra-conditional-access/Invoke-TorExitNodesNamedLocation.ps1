@@ -429,4 +429,4 @@ function Invoke-TorExitNodesNamedLocation {
 }
 
 # Execute the function with desired parameters
-Invoke-TorExitNodesNamedLocation -SkipTenantConfirmation -ExpectedTenantId $ExpectedTenantId
+Invoke-TorExitNodesNamedLocation -SkipTenantConfirmation -ExpectedTenantId $ExpectedTenantId | Out-Null
