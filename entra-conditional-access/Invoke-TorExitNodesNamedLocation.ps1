@@ -21,10 +21,8 @@
     - Non-existent Named Locations are created
     - No duplicate entries are created
 
-.AUTHOR
-    Stefan Redlin
-
 .NOTES
+    Author:      Stefan Redlin
     Permissions: Policy.ReadWrite.ConditionalAccess
 #>
 
@@ -268,7 +266,6 @@ function Invoke-TorExitNodesNamedLocation {
 
     .NOTES
         Author: Stefan Redlin
-        Requires: - Microsoft.Graph.Identity.SignIns - Microsoft.Graph.Authentication - Connect-MgGraph with Policy.ReadWrite.ConditionalAccess permission
     #>
 
     [CmdletBinding()]
