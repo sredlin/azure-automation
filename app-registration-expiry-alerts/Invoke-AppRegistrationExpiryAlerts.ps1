@@ -510,7 +510,9 @@ function New-HtmlMailBody {
     [CmdletBinding()]
     param(
         [Parameter(Mandatory)] [PSCustomObject[]]$Items,
-        [Parameter(Mandatory)] [int]$ThresholdDays
+        [Parameter(Mandatory)] [int]$ThresholdDays,
+        [string]$TenantName = '',
+        [string]$TenantId   = ''
     )
 
     $dateStr  = (Get-Date).ToString('dd.MM.yyyy  HH:mm')
@@ -518,6 +520,13 @@ function New-HtmlMailBody {
     $critical = @($Items | Where-Object { $_.DaysLeft -gt 0  -and $_.DaysLeft -le 14 })
     $warning  = @($Items | Where-Object { $_.DaysLeft -gt 14 -and $_.DaysLeft -le 30 })
     $info     = @($Items | Where-Object { $_.DaysLeft -gt 30 })
+
+    $tenantLine = if ($TenantName -or $TenantId) {
+        $parts = @()
+        if ($TenantName) { $parts += [System.Net.WebUtility]::HtmlEncode($TenantName) }
+        if ($TenantId)   { $parts += "<span style='font-family:Consolas,monospace;font-size:11px;opacity:.75;'>$TenantId</span>" }
+        $parts -join '&nbsp;&nbsp;<span style=''opacity:.4;''>&middot;</span>&nbsp;&nbsp;'
+    } else { '' }
 
     # Vater IT CI: Dark Navy #06263F | Blue #0F436A | Mint #1AF0C5
     function Get-AccentColor ([int]$d) {
@@ -597,6 +606,7 @@ function New-HtmlMailBody {
       <div style="font-size:12px;color:#7fa8c4;margin-top:8px;">
         $dateStr &nbsp;&nbsp;|&nbsp;&nbsp; Schwellenwert: $ThresholdDays Tage &nbsp;&nbsp;|&nbsp;&nbsp; $($Items.Count) Einträge
       </div>
+      $(if ($tenantLine) { "<div style='margin-top:10px;padding-top:10px;border-top:1px solid rgba(255,255,255,.12);font-size:12px;color:#aac4d8;'>Mandant:&nbsp;&nbsp;$tenantLine</div>" })
     </div>
     <!-- Wortmarke inline SVG -->
     <div style="flex-shrink:0;">
@@ -668,10 +678,12 @@ function Send-MailAlert {
         [Parameter(Mandatory)] [PSCustomObject[]]$Items,
         [Parameter(Mandatory)] [int]$ThresholdDays,
         [Parameter(Mandatory)] [string]$From,
-        [Parameter(Mandatory)] [string[]]$To
+        [Parameter(Mandatory)] [string[]]$To,
+        [string]$TenantName = '',
+        [string]$TenantId   = ''
     )
 
-    $htmlBody = New-HtmlMailBody -Items $Items -ThresholdDays $ThresholdDays
+    $htmlBody = New-HtmlMailBody -Items $Items -ThresholdDays $ThresholdDays -TenantName $TenantName -TenantId $TenantId
 
     $expired  = ($Items | Where-Object { $_.DaysLeft -le 0 }).Count
     $critical = ($Items | Where-Object { $_.DaysLeft -gt 0 -and $_.DaysLeft -le 14 }).Count
@@ -742,6 +754,9 @@ function Invoke-AppRegistrationExpiryAlerts {
         -SkipTenantConfirmation:$SkipTenantConfirmation `
         -ExpectedTenantId $ExpectedTenantId
 
+    $tenantId   = (Get-MgContext).TenantId
+    $tenantName = try { (Get-MgOrganization -Select displayName -ErrorAction Stop).DisplayName } catch { '' }
+
     Write-Output ""
     Write-Output "=== App Registration Expiry Check ==="
     Write-Output "Schwellenwert : $ThresholdDays Tage"
@@ -785,7 +800,7 @@ function Invoke-AppRegistrationExpiryAlerts {
     }
 
     if ($mailEnabled) {
-        Send-MailAlert -Items $expiringItems -ThresholdDays $ThresholdDays -From $MailFrom -To $MailTo
+        Send-MailAlert -Items $expiringItems -ThresholdDays $ThresholdDays -From $MailFrom -To $MailTo -TenantName $tenantName -TenantId $tenantId
     }
     else {
         Write-Output "E-Mail-Versand nicht konfiguriert – übersprungen."
