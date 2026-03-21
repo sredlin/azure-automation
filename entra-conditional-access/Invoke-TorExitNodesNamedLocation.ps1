@@ -330,7 +330,7 @@ function Invoke-TorExitNodesNamedLocation {
 
         if ($existingLocation) {
             $existingCidrs = $existingLocation.IpRanges |
-                ForEach-Object { $_.AdditionalProperties['cidrAddress'] } |
+                ForEach-Object { $_.CidrAddress } |
                 Where-Object { $_ } |
                 ForEach-Object { $_.ToLower() } |
                 Sort-Object -Unique
