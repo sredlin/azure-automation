@@ -1,3 +1,6 @@
+#Requires -Version 7
+#Requires -Modules Microsoft.Graph.Authentication, Microsoft.Graph.Identity.SignIns
+
 <#
 .SYNOPSIS
     Automates the maintenance of Entra ID Conditional Access Named Locations
@@ -30,9 +33,20 @@
 #>
 
 ### Initialize Microsoft Graph connection using Managed Identity ###
-Connect-MgGraph -Identity -NoWelcome
+try {
+    Connect-MgGraph -Identity -NoWelcome -ErrorAction Stop
+}
+catch {
+    throw "Failed to connect to Microsoft Graph via Managed Identity. $_"
+}
+
 # Replace with your expected TenantId
-$ExpectedTenantId = Get-AutomationVariable -Name 'ExpectedTenantId'
+try {
+    $ExpectedTenantId = Get-AutomationVariable -Name 'ExpectedTenantId' -ErrorAction Stop
+}
+catch {
+    throw "Failed to retrieve automation variable 'ExpectedTenantId'. $_"
+}
 
 function Get-TorExitNodeIPv4List {
     <#
@@ -300,9 +314,8 @@ function Invoke-TorExitNodesNamedLocation {
         Write-Verbose "Checking for existing named location '$DisplayName' ($AddressFamily)..."
 
         try {
-            $existingLocation = Get-MgIdentityConditionalAccessNamedLocation `
-                -Filter "displayName eq '$DisplayName'" `
-                -ErrorAction Stop |
+            $existingLocation = Get-MgIdentityConditionalAccessNamedLocation -All -ErrorAction Stop |
+                Where-Object { $_.DisplayName -eq $DisplayName } |
                 Select-Object -First 1
         }
         catch {
