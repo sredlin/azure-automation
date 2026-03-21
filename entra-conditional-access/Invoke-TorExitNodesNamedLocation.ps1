@@ -21,15 +21,11 @@
     - Non-existent Named Locations are created
     - No duplicate entries are created
 
-.REQUIRES
-    - PowerShell 7+
-    - Microsoft.Graph.Authentication
-    - Microsoft.Graph.Identity.SignIns
-    - Microsoft Graph Application Permission:
-        * Policy.ReadWrite.ConditionalAccess
-
 .AUTHOR
     Stefan Redlin
+
+.NOTES
+    Permissions: Policy.ReadWrite.ConditionalAccess
 #>
 
 ### Initialize Microsoft Graph connection using Managed Identity ###
@@ -40,7 +36,7 @@ catch {
     throw "Failed to connect to Microsoft Graph via Managed Identity. $_"
 }
 
-# Replace with your expected TenantId
+# Retrieved from Azure Automation shared variable
 try {
     $ExpectedTenantId = Get-AutomationVariable -Name 'ExpectedTenantId' -ErrorAction Stop
 }
