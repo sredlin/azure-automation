@@ -329,11 +329,23 @@ function Invoke-TorExitNodesNamedLocation {
         }
 
         if ($existingLocation) {
-            $existingCidrs = $existingLocation.IpRanges |
-                ForEach-Object { $_.CidrAddress } |
-                Where-Object { $_ } |
-                ForEach-Object { $_.ToLower() } |
-                Sort-Object -Unique
+            try {
+                $rawLocation = Invoke-MgGraphRequest `
+                    -Method GET `
+                    -Uri "https://graph.microsoft.com/v1.0/identity/conditionalAccess/namedLocations/$($existingLocation.Id)" `
+                    -ErrorAction Stop
+            }
+            catch {
+                throw "Failed to retrieve existing named location '$DisplayName' details. $_"
+            }
+
+            $existingCidrs = @(
+                $rawLocation.ipRanges |
+                    ForEach-Object { $_['cidrAddress'] } |
+                    Where-Object { $_ } |
+                    ForEach-Object { $_.ToLower() } |
+                    Sort-Object -Unique
+            )
 
             $added   = @($newCidrs | Where-Object { $_ -notin $existingCidrs })
             $removed = @($existingCidrs | Where-Object { $_ -notin $newCidrs })
