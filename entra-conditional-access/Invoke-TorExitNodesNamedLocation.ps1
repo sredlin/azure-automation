@@ -198,10 +198,10 @@ function Confirm-MgTenantContext {
         throw "Connected tenant mismatch. Expected TenantId '$ExpectedTenantId' but current context is '$($ctx.TenantId)'."
     }
 
-    Write-Host (
+    Write-Output (
         "Successfully connected with account '{0}' to tenant '{1}' (Environment: {2})." -f `
             $ctx.Account, $ctx.TenantId, $ctx.Environment
-    ) -ForegroundColor Green
+    )
 
     if (-not $SkipTenantConfirmation) {
         $answer = Read-Host "Is this the correct tenant? Type 'Y' to proceed"
@@ -237,7 +237,7 @@ function Invoke-TorExitNodesNamedLocation {
         None
 
     .OUTPUTS
-        PSCustomObject with action details (Created or Updated) for each named location.
+        None. Progress and change details are written directly to the output stream.
 
     .EXAMPLE
         Invoke-TorExitNodesNamedLocation
@@ -350,39 +350,30 @@ function Invoke-TorExitNodesNamedLocation {
 
             $unchanged = $newCidrs.Count - $added.Count
 
-            Write-Host ""
-            Write-Host "  [$AddressFamily] $DisplayName" -ForegroundColor White
-            Write-Host "  Id       : $($existingLocation.Id)"
-            Write-Host "  Total    : $($newCidrs.Count) entries  |  Unchanged: $unchanged  |  Added: $($added.Count)  |  Removed: $($removed.Count)"
+            Write-Output ""
+            Write-Output "  [$AddressFamily] $DisplayName"
+            Write-Output "  Id       : $($existingLocation.Id)"
+            Write-Output "  Total    : $($newCidrs.Count) entries  |  Unchanged: $unchanged  |  Added: $($added.Count)  |  Removed: $($removed.Count)"
 
             $maxDisplay = 20
             if ($added.Count -gt 0) {
-                Write-Host "  Added (+):" -ForegroundColor Cyan
-                $added | Select-Object -First $maxDisplay | ForEach-Object { Write-Host "    + $_" -ForegroundColor Cyan }
+                Write-Output "  Added (+):"
+                $added | Select-Object -First $maxDisplay | ForEach-Object { Write-Output "    + $_" }
                 if ($added.Count -gt $maxDisplay) {
-                    Write-Host "    ... and $($added.Count - $maxDisplay) more" -ForegroundColor Cyan
+                    Write-Output "    ... and $($added.Count - $maxDisplay) more"
                 }
             }
             if ($removed.Count -gt 0) {
-                Write-Host "  Removed (-):" -ForegroundColor Yellow
-                $removed | Select-Object -First $maxDisplay | ForEach-Object { Write-Host "    - $_" -ForegroundColor Yellow }
+                Write-Output "  Removed (-):"
+                $removed | Select-Object -First $maxDisplay | ForEach-Object { Write-Output "    - $_" }
                 if ($removed.Count -gt $maxDisplay) {
-                    Write-Host "    ... and $($removed.Count - $maxDisplay) more" -ForegroundColor Yellow
+                    Write-Output "    ... and $($removed.Count - $maxDisplay) more"
                 }
             }
             if ($added.Count -eq 0 -and $removed.Count -eq 0) {
-                Write-Host "  No changes." -ForegroundColor Gray
+                Write-Output "  No changes."
             }
-            Write-Host ""
-
-            [PSCustomObject]@{
-                Action          = 'Updated'
-                DisplayName     = $DisplayName
-                AddressFamily   = $AddressFamily
-                NamedLocationId = $existingLocation.Id
-                Added           = $added
-                Removed         = $removed
-            }
+            Write-Output ""
         }
         else {
             try {
@@ -394,39 +385,26 @@ function Invoke-TorExitNodesNamedLocation {
                 throw "Failed to create named location '$DisplayName'. $_"
             }
 
-            Write-Host ""
-            Write-Host "  [$AddressFamily] $DisplayName" -ForegroundColor White
-            Write-Host "  Id       : $($result.Id)"
-            Write-Host "  Total    : $($newCidrs.Count) entries  |  Created new location – all entries added." -ForegroundColor Green
-            Write-Host ""
-
-            [PSCustomObject]@{
-                Action          = 'Created'
-                DisplayName     = $DisplayName
-                AddressFamily   = $AddressFamily
-                NamedLocationId = $result.Id
-                Added           = $newCidrs
-                Removed         = @()
-            }
+            Write-Output ""
+            Write-Output "  [$AddressFamily] $DisplayName"
+            Write-Output "  Id       : $($result.Id)"
+            Write-Output "  Total    : $($newCidrs.Count) entries  |  Created new location – all entries added."
+            Write-Output ""
         }
     }
-
-    $results = @()
 
     if ($doV4) {
         Write-Verbose "Retrieving Tor exit node IPv4 list..."
         $cidrListV4 = Get-TorExitNodeIPv4List
-        $results += Update-OrCreateTorNamedLocation -DisplayName $displayNameIPv4 -Cidrs $cidrListV4 -AddressFamily 'IPv4'
+        Update-OrCreateTorNamedLocation -DisplayName $displayNameIPv4 -Cidrs $cidrListV4 -AddressFamily 'IPv4'
     }
 
     if ($doV6) {
         Write-Verbose "Retrieving Tor exit node IPv6 list..."
         $cidrListV6 = Get-TorExitNodeIPv6List
-        $results += Update-OrCreateTorNamedLocation -DisplayName $displayNameIPv6 -Cidrs $cidrListV6 -AddressFamily 'IPv6'
+        Update-OrCreateTorNamedLocation -DisplayName $displayNameIPv6 -Cidrs $cidrListV6 -AddressFamily 'IPv6'
     }
-
-    return $results
 }
 
 # Execute the function with desired parameters
-Invoke-TorExitNodesNamedLocation -SkipTenantConfirmation -ExpectedTenantId $ExpectedTenantId | Out-Null
+Invoke-TorExitNodesNamedLocation -SkipTenantConfirmation -ExpectedTenantId $ExpectedTenantId
