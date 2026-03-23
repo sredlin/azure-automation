@@ -9,9 +9,8 @@
 
 .DESCRIPTION
     Das Skript verbindet sich per Managed Identity mit Microsoft Graph,
-    liest alle App Registrations sowie Service Principals ohne lokale
-    App Registration und überprüft deren passwordCredentials (Secrets)
-    und keyCredentials (Zertifikate) auf bevorstehende Ablaufdaten.
+    liest alle App Registrations und überprüft deren passwordCredentials
+    (Secrets) und keyCredentials (Zertifikate) auf bevorstehende Ablaufdaten.
 
     Credentials werden in vier Dringlichkeitsstufen eingeteilt:
       - ABGELAUFEN  : Ablaufdatum bereits überschritten
@@ -126,9 +125,8 @@ function Get-ExpiringCredentials {
         Gibt alle Credentials zurück, die innerhalb des Schwellenwerts ablaufen,
 
     .DESCRIPTION
-        Prüft alle App Registrations sowie Service Principals, deren App-ID
-        keiner lokalen App Registration entspricht (externe/mandantenübergreifende
-        Apps). Credentials, die kein Ablaufdatum haben, werden übersprungen.
+        Prüft alle App Registrations des eigenen Mandanten.
+        Credentials ohne Ablaufdatum werden übersprungen.
 
     .PARAMETER ThresholdDays
         Anzahl Tage bis zum Ablaufdatum, ab der gewarnt wird.
@@ -159,11 +157,6 @@ function Get-ExpiringCredentials {
     catch {
         throw "App Registrations konnten nicht gelesen werden. $_"
     }
-
-    $localAppIds = [System.Collections.Generic.HashSet[string]]::new(
-        [System.StringComparer]::OrdinalIgnoreCase
-    )
-    foreach ($app in $apps) { $null = $localAppIds.Add($app.AppId) }
 
     Write-Output "  $($apps.Count) App Registration(s) gefunden."
 
@@ -199,64 +192,6 @@ function Get-ExpiringCredentials {
                 AppName        = $app.DisplayName
                 AppId          = $app.AppId
                 ObjectId       = $app.Id
-                CredentialType = 'Zertifikat'
-                CredentialName = if ($cert.DisplayName) { $cert.DisplayName } else { '(kein Name)' }
-                KeyId          = $cert.KeyId
-                ExpiryDate     = $cert.EndDateTime
-                DaysLeft       = $daysLeft
-            })
-        }
-    }
-
-    ### Service Principals ohne lokale App Registration ###
-    Write-Output "Lese Service Principals mit Credentials..."
-    try {
-        $spns = Get-MgServicePrincipal -All `
-            -Property 'id,displayName,appId,appOwnerOrganizationId,passwordCredentials,keyCredentials' `
-            -ErrorAction Stop |
-            Where-Object {
-                ($_.PasswordCredentials.Count -gt 0 -or $_.KeyCredentials.Count -gt 0) -and
-                -not $localAppIds.Contains($_.AppId)
-            }
-    }
-    catch {
-        throw "Service Principals konnten nicht gelesen werden. $_"
-    }
-
-    Write-Output "  $($spns.Count) Service Principal(s) mit Credentials (ohne lokale App Registration) gefunden."
-
-    foreach ($spn in $spns) {
-
-        foreach ($secret in $spn.PasswordCredentials) {
-            if ($null -eq $secret)                { continue }
-            if (-not $secret.EndDateTime)         { continue }
-            if ($secret.EndDateTime -gt $cutoff)  { continue }
-
-            $daysLeft = [math]::Floor(($secret.EndDateTime - $now).TotalDays)
-            $results.Add([PSCustomObject]@{
-                Source         = 'Service Principal'
-                AppName        = $spn.DisplayName
-                AppId          = $spn.AppId
-                ObjectId       = $spn.Id
-                CredentialType = 'Client Secret'
-                CredentialName = if ($secret.DisplayName) { $secret.DisplayName } else { '(kein Name)' }
-                KeyId          = $secret.KeyId
-                ExpiryDate     = $secret.EndDateTime
-                DaysLeft       = $daysLeft
-            })
-        }
-
-        foreach ($cert in $spn.KeyCredentials) {
-            if ($null -eq $cert)              { continue }
-            if (-not $cert.EndDateTime)       { continue }
-            if ($cert.EndDateTime -gt $cutoff){ continue }
-
-            $daysLeft = [math]::Floor(($cert.EndDateTime - $now).TotalDays)
-            $results.Add([PSCustomObject]@{
-                Source         = 'Service Principal'
-                AppName        = $spn.DisplayName
-                AppId          = $spn.AppId
-                ObjectId       = $spn.Id
                 CredentialType = 'Zertifikat'
                 CredentialName = if ($cert.DisplayName) { $cert.DisplayName } else { '(kein Name)' }
                 KeyId          = $cert.KeyId
