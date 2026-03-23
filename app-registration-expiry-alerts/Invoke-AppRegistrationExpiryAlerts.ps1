@@ -719,7 +719,7 @@ function Invoke-AppRegistrationExpiryAlerts {
         -ExpectedTenantId $ExpectedTenantId
 
     $tenantId   = (Get-MgContext).TenantId
-    $tenantName = try { (Get-MgOrganization -Select displayName -ErrorAction Stop).DisplayName } catch { Write-Warning "Mandantenname konnte nicht gelesen werden – Organization.Read.All fehlt?"; '' }
+    $tenantName = try { (Invoke-MgGraphRequest -Method GET -Uri 'https://graph.microsoft.com/v1.0/organization?$select=displayName' -ErrorAction Stop).value[0].displayName } catch { Write-Warning "Mandantenname konnte nicht gelesen werden. $_"; '' }
 
     Write-Output ""
     Write-Output "=== App Registration Expiry Check ==="
