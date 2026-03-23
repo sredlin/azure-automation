@@ -28,8 +28,9 @@
 .NOTES
     Author:          Stefan Redlin
     Graph-Berechtigungen (Application):
-      Application.Read.All   – App Registrations & SPNs lesen
-      Mail.Send              – E-Mail versenden
+      Application.Read.All    – App Registrations lesen
+      Organization.Read.All   – Mandantenname auslesen (optional, für Anzeige)
+      Mail.Send               – E-Mail versenden
 
     Automation-Variablen:
       Erforderlich:
@@ -718,7 +719,7 @@ function Invoke-AppRegistrationExpiryAlerts {
         -ExpectedTenantId $ExpectedTenantId
 
     $tenantId   = (Get-MgContext).TenantId
-    $tenantName = try { (Get-MgOrganization -Select displayName -ErrorAction Stop).DisplayName } catch { '' }
+    $tenantName = try { (Get-MgOrganization -Select displayName -ErrorAction Stop).DisplayName } catch { Write-Warning "Mandantenname konnte nicht gelesen werden – Organization.Read.All fehlt?"; '' }
 
     Write-Output ""
     Write-Output "=== App Registration Expiry Check ==="
