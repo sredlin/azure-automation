@@ -701,7 +701,8 @@ function Invoke-AppRegistrationExpiryAlerts {
     Write-Output "Zeitpunkt     : $(Get-Date -Format 'dd.MM.yyyy HH:mm') UTC"
     Write-Output ""
 
-    $expiringItems = Get-ExpiringCredentials -ThresholdDays $ThresholdDays
+    $expiringItems = @(Get-ExpiringCredentials -ThresholdDays $ThresholdDays |
+        Where-Object { -not [string]::IsNullOrEmpty($_.AppId) -and $_.CredentialType -and $null -ne $_.DaysLeft })
 
     if ($expiringItems.Count -eq 0) {
         Write-Output "Keine ablaufenden Credentials innerhalb von $ThresholdDays Tagen gefunden."
