@@ -161,6 +161,7 @@ function Get-ExpiringCredentials {
     Write-Output "  $($apps.Count) App Registration(s) gefunden."
 
     foreach ($app in $apps) {
+        if ([string]::IsNullOrEmpty($app.Id)) { continue }
 
         foreach ($secret in $app.PasswordCredentials) {
             if ($null -eq $secret)                { continue }
