@@ -204,7 +204,7 @@ function Get-ExpiringCredentials {
         }
     }
 
-    return ($results | Sort-Object DaysLeft)
+    return ($results | Where-Object { $_.CredentialType -and $null -ne $_.DaysLeft } | Sort-Object DaysLeft)
 }
 
 function New-TeamsAlertCard {
