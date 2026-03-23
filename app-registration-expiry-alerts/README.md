@@ -1,6 +1,6 @@
 # App Registration – Expiry Alerts
 
-Prüft alle **App Registrations** und **Service Principals** im Entra ID-Mandanten auf ablaufende **Client Secrets** und **Zertifikate** und sendet Warnmeldungen über **Microsoft Teams** (Adaptive Card) und/oder **E-Mail** (HTML).
+Prüft alle **App Registrations** im Entra ID-Mandanten auf ablaufende **Client Secrets** und **Zertifikate** und sendet Warnmeldungen über **Microsoft Teams** (Adaptive Card) und/oder **E-Mail** (HTML).
 
 ---
 
@@ -17,8 +17,7 @@ Prüft alle **App Registrations** und **Service Principals** im Entra ID-Mandant
 
 1. Verbindung zu Microsoft Graph per **System-Managed Identity**
 2. Alle **App Registrations** (`/applications`) werden auf `passwordCredentials` (Secrets) und `keyCredentials` (Zertifikate) geprüft
-3. Alle **Service Principals** mit Credentials, die **keine** lokale App Registration besitzen (externe/mandantenübergreifende Apps), werden ebenfalls geprüft
-4. Credentials werden in vier Dringlichkeitsstufen eingeteilt:
+3. Credentials werden in vier Dringlichkeitsstufen eingeteilt:
 
 | Stufe | Kriterium | Farbe |
 |-------|-----------|-------|
@@ -38,7 +37,8 @@ Prüft alle **App Registrations** und **Service Principals** im Entra ID-Mandant
 
 | Berechtigung | Zweck |
 |---|---|
-| `Application.Read.All` | App Registrations und Service Principals lesen |
+| `Application.Read.All` | App Registrations lesen |
+| `Organization.Read.All` | Mandantenname für Mail/Teams-Anzeige auslesen |
 | `Mail.Send` | E-Mail über Graph API senden |
 
 Die Berechtigungen werden mit `Initialize-AppExpiryAlertAutomationIdentity.ps1` einmalig zugewiesen.
@@ -105,8 +105,11 @@ Die Managed Identity benötigt dafür `Mail.Send` als Application Permission.
 # 4. Automation-Variablen im Portal anlegen (siehe Tabelle oben)
 
 # 5. Runbook importieren: Invoke-AppRegistrationExpiryAlerts.ps1
-#    Runtime: PowerShell 7.x
-#    Module:  Microsoft.Graph.Authentication, Microsoft.Graph.Applications
+#    Runtime Environment: PowerShell 7.4
+#    Pakete (Runtime Environment → Attached Packages → Add from gallery):
+#      Microsoft.Graph.Authentication            2.36.1+
+#      Microsoft.Graph.Applications              2.36.1+
+#      Microsoft.Graph.Identity.DirectoryManagement  (für Mandantenname)
 
 # 6. Zeitplan einrichten (empfohlen: täglich 06:00 UTC)
 ```
