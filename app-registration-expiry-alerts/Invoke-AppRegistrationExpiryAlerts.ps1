@@ -164,6 +164,7 @@ function Get-ExpiringCredentials {
 
         foreach ($secret in $app.PasswordCredentials) {
             if ($null -eq $secret)                { continue }
+            if (-not $secret.KeyId)               { continue }   # leeres SDK-Objekt
             if (-not $secret.EndDateTime)         { continue }
             if ($secret.EndDateTime -gt $cutoff)  { continue }
 
@@ -183,6 +184,7 @@ function Get-ExpiringCredentials {
 
         foreach ($cert in $app.KeyCredentials) {
             if ($null -eq $cert)              { continue }
+            if (-not $cert.KeyId)             { continue }   # leeres SDK-Objekt
             if (-not $cert.EndDateTime)       { continue }
             if ($cert.EndDateTime -gt $cutoff){ continue }
 
@@ -715,7 +717,8 @@ function Invoke-AppRegistrationExpiryAlerts {
                   elseif ($item.DaysLeft -le 14) { "KRITISCH" }
                   elseif ($item.DaysLeft -le 30) { "WARNUNG" }
                   else { "HINWEIS" }
-        Write-Output "  [$status] $($item.AppName)  |  $($item.CredentialType)  |  $($item.CredentialName)  |  $($item.DaysLeft) Tage"
+        $nameOrId = if ($item.AppName) { $item.AppName } else { "(ObjectId: $($item.ObjectId))" }
+        Write-Output "  [$status] $nameOrId  |  $($item.CredentialType)  |  $($item.CredentialName)  |  $($item.DaysLeft) Tage"
     }
     Write-Output ""
 
