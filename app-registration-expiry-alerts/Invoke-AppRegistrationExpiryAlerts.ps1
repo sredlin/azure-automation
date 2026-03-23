@@ -385,6 +385,22 @@ function New-TeamsAlertCard {
     Add-CredentialGroup -GroupItems $warning  -Label '🟠  WARNUNG  (15 – 30 Tage)'         -Color 'Warning'
     Add-CredentialGroup -GroupItems $info     -Label "🔵  HINWEIS  (31 – $ThresholdDays Tage)" -Color 'Accent'
 
+    # ── Legende ───────────────────────────────────────────────────────────────
+    $cardBody.Add(@{
+        type      = 'Container'
+        separator = $true
+        spacing   = 'Small'
+        items     = @(
+            @{
+                type     = 'TextBlock'
+                text     = "🔴 ABGELAUFEN: überschritten  |  🔴 KRITISCH: ≤ 14 Tage  |  🟠 WARNUNG: ≤ 30 Tage  |  🔵 HINWEIS: ≤ $ThresholdDays Tage"
+                isSubtle = $true
+                size     = 'Small'
+                wrap     = $true
+            }
+        )
+    })
+
     $card = @{
         type      = 'AdaptiveCard'
         '$schema' = 'http://adaptivecards.io/schemas/adaptive-card.json'
@@ -588,6 +604,15 @@ $summaryHtml
 $($tableRows -join '')
       </tbody>
     </table>
+  </div>
+
+  <!-- Legende -->
+  <div style="padding:12px 32px 16px;background:#f8f9fb;border-top:1px solid #e5e7eb;font-size:11px;color:#6b7280;">
+    <span style="font-weight:600;color:#374151;">Dringlichkeitsstufen:&nbsp;&nbsp;</span>
+    <span style="margin-right:14px;"><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#b91c1c;margin-right:4px;vertical-align:middle;"></span>ABGELAUFEN – Ablaufdatum überschritten</span>
+    <span style="margin-right:14px;"><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#c2410c;margin-right:4px;vertical-align:middle;"></span>KRITISCH – innerhalb von 14 Tagen</span>
+    <span style="margin-right:14px;"><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#b45309;margin-right:4px;vertical-align:middle;"></span>WARNUNG – innerhalb von 30 Tagen</span>
+    <span><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#1AF0C5;margin-right:4px;vertical-align:middle;"></span>HINWEIS – innerhalb von $ThresholdDays Tagen</span>
   </div>
 
   <!-- Footer -->
