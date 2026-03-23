@@ -700,6 +700,12 @@ function Invoke-AppRegistrationExpiryAlerts {
     Write-Output "Schwellenwert : $ThresholdDays Tage"
     Write-Output "Zeitpunkt     : $(Get-Date -Format 'dd.MM.yyyy HH:mm') UTC"
     Write-Output ""
+    Write-Output "Credentials werden in vier Dringlichkeitsstufen eingeteilt:"
+    Write-Output "  - ABGELAUFEN  : Ablaufdatum bereits überschritten"
+    Write-Output "  - KRITISCH    : läuft innerhalb von 14 Tagen ab"
+    Write-Output "  - WARNUNG     : läuft innerhalb von 30 Tagen ab"
+    Write-Output "  - HINWEIS     : läuft innerhalb von $ThresholdDays Tagen ab"
+    Write-Output ""
 
     $expiringItems = @(Get-ExpiringCredentials -ThresholdDays $ThresholdDays |
         Where-Object { -not [string]::IsNullOrEmpty($_.AppId) -and $_.CredentialType -and $null -ne $_.DaysLeft })
