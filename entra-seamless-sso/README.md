@@ -49,9 +49,10 @@ Auf einem Domain Controller oder Server mit RSAT/AD-Modul:
 
 ```powershell
 .\Initialize-KerberosDelegation.ps1 `
-    -ServiceAccountOU "OU=ServiceAccounts,DC=contoso,DC=com" `
-    -DomainFQDN "contoso.com"
+    -ServiceAccountOU "OU=ServiceAccounts,DC=contoso,DC=com"
 ```
+
+Der Domain-FQDN wird automatisch über `Get-ADDomain` ermittelt.
 
 Das Skript gibt das generierte Passwort **einmalig** aus – direkt im nächsten Schritt als Credential Asset hinterlegen.
 

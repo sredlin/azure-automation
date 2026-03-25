@@ -29,14 +29,9 @@
     Distinguished Name der OU, in der der Account angelegt wird.
     Beispiel: "OU=ServiceAccounts,DC=contoso,DC=com"
 
-.PARAMETER DomainFQDN
-    FQDN der Domain.
-    Beispiel: "contoso.com"
-
 .EXAMPLE
     .\Initialize-KerberosDelegation.ps1 `
-        -ServiceAccountOU "OU=ServiceAccounts,DC=contoso,DC=com" `
-        -DomainFQDN "contoso.com"
+        -ServiceAccountOU "OU=ServiceAccounts,DC=contoso,DC=com"
 
 .NOTES
     Ausfuehrung    : Einmalig, auf DC oder Server mit AD-Modul (als Domain Admin)
@@ -48,10 +43,7 @@ param (
     [string]$ServiceAccountName = 'sa-kerberos-rollover',
 
     [Parameter(Mandatory)]
-    [string]$ServiceAccountOU,
-
-    [Parameter(Mandatory)]
-    [string]$DomainFQDN
+    [string]$ServiceAccountOU
 )
 
 Set-StrictMode -Version Latest
@@ -117,10 +109,18 @@ $securePassword = ConvertTo-SecureString -String $plainPassword -AsPlainText -Fo
 
 #endregion
 
+#region Domain ermitteln
+
+$domain        = Get-ADDomain
+$DomainFQDN    = $domain.DNSRoot
+$domainNetBIOS = $domain.NetBIOSName
+Write-Log "Domain erkannt: $DomainFQDN ($domainNetBIOS)"
+
+#endregion
+
 #region Serviceaccount anlegen
 
-$domainNetBIOS = (Get-ADDomain -Server $DomainFQDN).NetBIOSName
-$accountDN     = "CN=$ServiceAccountName,$ServiceAccountOU"
+$accountDN = "CN=$ServiceAccountName,$ServiceAccountOU"
 
 Write-Log "Prueffe Serviceaccount '$ServiceAccountName'."
 
@@ -151,7 +151,7 @@ else {
 
 Write-Log "Suche AZUREADSSOACC-Computerkonto."
 
-$ssoAccount = Get-ADComputer -Filter { Name -eq 'AZUREADSSOACC' } -Server $DomainFQDN -ErrorAction SilentlyContinue
+$ssoAccount = Get-ADComputer -Filter { Name -eq 'AZUREADSSOACC' } -ErrorAction SilentlyContinue
 
 if ($null -eq $ssoAccount) {
     throw "Computerkonto 'AZUREADSSOACC' nicht gefunden. Ist Seamless SSO konfiguriert?"
