@@ -49,6 +49,9 @@ param (
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
+# Anführungszeichen entfernen, die beim Aufruf versehentlich im Wert landen können
+$ServiceAccountOU = $ServiceAccountOU.Trim().Trim('"').Trim("'").Trim()
+
 #region Hilfsfunktionen
 
 function Write-Log {
