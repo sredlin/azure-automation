@@ -173,10 +173,21 @@ $identity       = [System.Security.Principal.SecurityIdentifier]$accountSID
 # GUIDs der relevanten AD-Attribute und Extended Rights
 $guidResetPassword              = [Guid]'00299570-246d-11d0-a768-00aa006e0529'
 $guidMsDsSupportedEncTypes      = [Guid]'20119867-1d04-4ab7-9371-cfc3d5df0afd'
+$adRightsReadProperty           = [System.DirectoryServices.ActiveDirectoryRights]::ReadProperty
 $adRightsWriteProperty          = [System.DirectoryServices.ActiveDirectoryRights]::WriteProperty
 $adRightsExtendedRight          = [System.DirectoryServices.ActiveDirectoryRights]::ExtendedRight
 $accessControlTypeAllow         = [System.Security.AccessControl.AccessControlType]::Allow
 $inheritanceFlagNone            = [System.DirectoryServices.ActiveDirectorySecurityInheritance]::None
+
+# Read All Properties
+$aceReadAll = New-Object System.DirectoryServices.ActiveDirectoryAccessRule(
+    $identity,
+    $adRightsReadProperty,
+    $accessControlTypeAllow,
+    [Guid]::Empty,
+    $inheritanceFlagNone,
+    [Guid]::Empty
+)
 
 # Reset Password
 $aceResetPassword = New-Object System.DirectoryServices.ActiveDirectoryAccessRule(
@@ -198,6 +209,7 @@ $aceWriteEncTypes = New-Object System.DirectoryServices.ActiveDirectoryAccessRul
     [Guid]::Empty
 )
 
+$acl.AddAccessRule($aceReadAll)
 $acl.AddAccessRule($aceResetPassword)
 $acl.AddAccessRule($aceWriteEncTypes)
 Set-Acl -Path $ssoAccountPath -AclObject $acl

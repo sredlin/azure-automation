@@ -25,7 +25,7 @@ Im Rahmen der Seamless SSO-Konfiguration erstellt Microsoft Entra Connect im lok
 
 | Konto | Typ | Benötigte Berechtigungen |
 |-------|-----|--------------------------|
-| `sa-kerberos-rollover` | AD-Serviceaccount | Delegiert auf `AZUREADSSOACC`: Reset Password + Write `msDS-SupportedEncryptionTypes` |
+| `sa-kerberos-rollover` | AD-Serviceaccount | Delegiert auf `AZUREADSSOACC`: Read All Properties + Reset Password + Write `msDS-SupportedEncryptionTypes` |
 | `AADSSOCloudCredential` | Entra ID Benutzerkonto | **Global Administrator** |
 
 > **Bekanntes Issue:** Aufgrund eines bekannten Bugs reicht die Rolle *Hybrid Identity Administrator* für `Update-AzureADSSOForest` derzeit nicht aus. Der Cloud-Serviceaccount benötigt temporär **Global Administrator**. Microsoft ist informiert. Den Account als dedizierten, durch Conditional Access abgesicherten Service Account einrichten.
