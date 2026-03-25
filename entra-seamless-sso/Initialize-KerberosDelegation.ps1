@@ -152,16 +152,20 @@ else {
 
 Write-Log "Prueffe Domain Admins Mitgliedschaft."
 
-$isDomainAdmin = Get-ADGroupMember -Identity 'Domain Admins' |
+# Gruppe per SID ermitteln (sprachunabhaengig, RID 512 = Domain Admins / Domaenen-Admins)
+$domainAdminsSID   = "$($domain.DomainSID)-512"
+$domainAdminsGroup = Get-ADGroup -Filter { SID -eq $domainAdminsSID }
+
+$isDomainAdmin = Get-ADGroupMember -Identity $domainAdminsGroup |
     Where-Object { $_.SamAccountName -eq $ServiceAccountName }
 
 if ($null -eq $isDomainAdmin) {
-    Write-Log "Fuege '$ServiceAccountName' zu Domain Admins hinzu."
-    Add-ADGroupMember -Identity 'Domain Admins' -Members $ServiceAccountName
+    Write-Log "Fuege '$ServiceAccountName' zu '$($domainAdminsGroup.Name)' hinzu."
+    Add-ADGroupMember -Identity $domainAdminsGroup -Members $ServiceAccountName
     Write-Log "Mitgliedschaft gesetzt."
 }
 else {
-    Write-Log "'$ServiceAccountName' ist bereits Mitglied von Domain Admins."
+    Write-Log "'$ServiceAccountName' ist bereits Mitglied von '$($domainAdminsGroup.Name)'."
 }
 
 #endregion
