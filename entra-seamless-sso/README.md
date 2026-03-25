@@ -114,7 +114,7 @@ Im Runbook → **Link to Schedule** → neuen Schedule erstellen:
 
 | Parameter | Typ | Standard | Beschreibung |
 |-----------|-----|----------|--------------|
-| `PreserveCustomPermissions` | Switch | `$false` | Aktivieren, wenn delegierte Berechtigungen auf `AZUREADSSOACC` erhalten bleiben sollen |
+| `PreserveCustomPermissions` | Switch | `$true` | Erhält delegierte Berechtigungen auf `AZUREADSSOACC` nach dem Rollover. Muss aktiv sein, damit die via `Initialize-KerberosDelegation.ps1` gesetzten ACEs nicht überschrieben werden. |
 
 ---
 

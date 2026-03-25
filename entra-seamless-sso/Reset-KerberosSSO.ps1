@@ -33,9 +33,10 @@
 
 [CmdletBinding()]
 param (
-    # Schalter aktivieren, wenn delegierte Berechtigungen auf dem AZUREADSSOACC-Konto
-    # gesetzt sind und erhalten bleiben sollen.
-    [switch]$PreserveCustomPermissions
+    # Delegierte Berechtigungen auf AZUREADSSOACC nach dem Rollover erhalten.
+    # Standard: $true – verhindert, dass via Initialize-KerberosDelegation.ps1
+    # gesetzte ACEs bei jedem Rollover überschrieben werden.
+    [switch]$PreserveCustomPermissions = $true
 )
 
 Set-StrictMode -Version Latest
