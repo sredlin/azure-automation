@@ -12,10 +12,12 @@
     auf dem Microsoft Entra Connect installiert ist (AzureADSSO.psd1 vorhanden).
 
     Benoetigt zwei Credential Assets im Automation Account:
-      - AADSSOOnPremCredential : AD-Serviceaccount (DOMAIN\sa-kerberos-rollover) mit
-                                 delegierten Berechtigungen auf AZUREADSSOACC:
-                                 Reset Password + Write msDS-SupportedEncryptionTypes
-                                 (eingerichtet via Initialize-KerberosDelegation.ps1)
+      - AADSSOOnPremCredential : AD-Serviceaccount (DOMAIN\sa-kerberos-rollover).
+                                 Benoetigt Mitgliedschaft in "Domain Admins".
+                                 Hinweis: Least-Privilege per ACE-Delegation auf
+                                 AZUREADSSOACC wurde getestet und ist nicht moeglich –
+                                 Update-AzureADSSOForest prueft intern die Gruppen-
+                                 mitgliedschaft und schlaegt andernfalls fehl.
       - AADSSOCloudCredential  : Entra ID Global Administrator Serviceaccount
                                  (Hinweis: Hybrid Identity Administrator reicht derzeit
                                   aufgrund eines bekannten Bugs nicht aus)

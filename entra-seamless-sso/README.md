@@ -25,10 +25,12 @@ Im Rahmen der Seamless SSO-Konfiguration erstellt Microsoft Entra Connect im lok
 
 | Konto | Typ | Benötigte Berechtigungen |
 |-------|-----|--------------------------|
-| `sa-kerberos-rollover` | AD-Serviceaccount | Delegiert auf `AZUREADSSOACC`: Read All Properties + Reset Password + Write `msDS-SupportedEncryptionTypes` |
+| `sa-kerberos-rollover` | AD-Serviceaccount | **Domain Administrator** |
 | `AADSSOCloudCredential` | Entra ID Benutzerkonto | **Global Administrator** |
 
-> **Bekanntes Issue:** Aufgrund eines bekannten Bugs reicht die Rolle *Hybrid Identity Administrator* für `Update-AzureADSSOForest` derzeit nicht aus. Der Cloud-Serviceaccount benötigt temporär **Global Administrator**. Microsoft ist informiert. Den Account als dedizierten, durch Conditional Access abgesicherten Service Account einrichten.
+> **Least Privilege nicht möglich (getestet):** Der Ansatz, nur gezielt ACEs auf `AZUREADSSOACC` zu delegieren (Read All Properties, Reset Password, Write msDS-SupportedEncryptionTypes), wurde vollständig getestet und schlägt fehl. `Update-AzureADSSOForest` prüft intern die Gruppenmitgliedschaft und gibt "Zugriff verweigert" zurück, auch wenn alle AD-Berechtigungen korrekt gesetzt sind. Der Account muss Mitglied von **Domain Admins** sein.
+
+> **Bekanntes Issue (Cloud):** Aufgrund eines bekannten Bugs reicht die Rolle *Hybrid Identity Administrator* für `Update-AzureADSSOForest` derzeit nicht aus. Der Cloud-Serviceaccount benötigt **Global Administrator**. Microsoft ist informiert. Den Account als dedizierten, durch Conditional Access abgesicherten Service Account einrichten.
 
 ### Infrastruktur
 
@@ -54,6 +56,12 @@ Auf einem Domain Controller oder Server mit RSAT/AD-Modul:
 Der Domain-FQDN wird automatisch über `Get-ADDomain` ermittelt.
 
 Das Skript gibt das generierte Passwort **einmalig** aus – direkt im nächsten Schritt als Credential Asset hinterlegen.
+
+Anschließend den Account zu Domain Admins hinzufügen (Ausgabe des Skripts beachten):
+
+```powershell
+Add-ADGroupMember -Identity "Domain Admins" -Members "sa-kerberos-rollover"
+```
 
 ### Schritt 2 – Automation Account erstellen
 

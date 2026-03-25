@@ -2,19 +2,28 @@
 #Requires -Modules ActiveDirectory
 <#
 .SYNOPSIS
-    Erstellt den AD-Serviceaccount und delegiert die Mindestrechte fuer den Kerberos Key Rollover.
+    Erstellt den AD-Serviceaccount fuer den Kerberos Key Rollover und setzt ACEs auf AZUREADSSOACC.
 
 .DESCRIPTION
     Dieses Einrichtungsskript wird einmalig auf einem Domain Controller (oder einem
     Server mit installiertem RSAT/ActiveDirectory-Modul) ausgefuehrt.
 
     Es fuehrt folgende Schritte aus:
-      1. Generiert ein sicheres 32-Zeichen-Zufallspasswort
-      2. Legt den Serviceaccount im angegebenen OU-Pfad an
-      3. Delegiert auf dem AZUREADSSOACC-Computerkonto gezielt:
+      1. Generiert ein sicheres 32-Zeichen-Zufallspasswort (nur bei neuem Account)
+      2. Legt den Serviceaccount im angegebenen OU-Pfad an (falls nicht vorhanden)
+      3. Setzt ACEs auf dem AZUREADSSOACC-Computerkonto:
+           - Read All Properties
            - Reset Password
            - Write msDS-SupportedEncryptionTypes
-      4. Gibt das generierte Passwort einmalig aus (fuer Automation Credential Asset)
+      4. Gibt das generierte Passwort einmalig aus (nur bei neuem Account)
+
+    WICHTIG – Least Privilege nicht moeglich:
+    Der Least-Privilege-Ansatz (nur ACE-Delegation auf AZUREADSSOACC) wurde getestet
+    und ist nicht ausreichend. Update-AzureADSSOForest prueft intern die Gruppen-
+    mitgliedschaft und schlaegt mit "Zugriff verweigert" fehl, auch wenn alle
+    relevanten Berechtigungen auf AZUREADSSOACC korrekt gesetzt sind.
+    Der Account muss Mitglied der Gruppe "Domain Admins" sein.
+    Das Skript gibt am Ende den entsprechenden Befehl aus.
 
     Das Passwort wird nicht in Logs oder Dateien gespeichert.
     Direkt nach der Ausgabe im Automation Account als Credential Asset hinterlegen:
@@ -238,5 +247,15 @@ if ($newAccount) {
 }
 
 Write-Log "Einrichtung abgeschlossen."
+Write-Host ""
+Write-Host "============================================================" -ForegroundColor Cyan
+Write-Host " NAECHSTER SCHRITT: Domain Admins Mitgliedschaft setzen" -ForegroundColor Cyan
+Write-Host "============================================================" -ForegroundColor Cyan
+Write-Host " Update-AzureADSSOForest erfordert Domain Administrator-"
+Write-Host " Mitgliedschaft. ACE-Delegation allein ist nicht ausreichend."
+Write-Host ""
+Write-Host " Add-ADGroupMember -Identity 'Domain Admins' -Members '$ServiceAccountName'"
+Write-Host "============================================================" -ForegroundColor Cyan
+Write-Host ""
 
 #endregion
