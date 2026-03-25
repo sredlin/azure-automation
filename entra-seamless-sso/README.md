@@ -15,7 +15,6 @@ Im Rahmen der Seamless SSO-Konfiguration erstellt Microsoft Entra Connect im lok
 | Datei | Zweck | Ausführung |
 |-------|-------|------------|
 | `Initialize-KerberosDelegation.ps1` | Erstellt AD-Serviceaccount und delegiert Mindestrechte auf `AZUREADSSOACC` | Einmalig (DC / RSAT) |
-| `Initialize-HybridWorker.ps1` | Erstellt Automation Account und Hybrid Worker Group | Einmalig |
 | `Reset-KerberosSSO.ps1` | Führt den Kerberos Key Rollover durch | Monatlich (Azure Automation Schedule) |
 
 ---
@@ -56,26 +55,37 @@ Der Domain-FQDN wird automatisch über `Get-ADDomain` ermittelt.
 
 Das Skript gibt das generierte Passwort **einmalig** aus – direkt im nächsten Schritt als Credential Asset hinterlegen.
 
-### Schritt 2 – Automation Account und Hybrid Worker Group erstellen
+### Schritt 2 – Automation Account erstellen
 
-```powershell
-.\Initialize-HybridWorker.ps1 `
-    -AutomationResourceGroupName "rg-automation" `
-    -AutomationAccountName "aa-kerberos-rollover" `
-    -Location "westeurope" `
-    -HybridWorkerGroupName "HybridWorkerGroup-EntraConnect"
-```
+Im Azure Portal → **Automation Accounts → + Create**
 
-### Schritt 3 – HybridWorkerForWindows Extension an der Arc Machine aktivieren
+| Feld | Wert |
+|------|------|
+| Resource Group | `rg-automation` |
+| Name | z. B. `aa-kerberos-rollover` |
+| Region | z. B. `West Europe` |
 
-Im Azure Portal: **Arc Machine → Extensions → + Add → HybridWorkerForWindows**
+### Schritt 3 – Hybrid Worker Group erstellen
+
+Im Automation Account → **Hybrid Worker Groups → + Create**
+
+| Feld | Wert |
+|------|------|
+| Name | z. B. `HybridWorkerGroup-EntraConnect` |
+| Use Hybrid Worker Credentials | `Default` |
+
+### Schritt 4 – HybridWorkerForWindows Extension an der Arc Machine aktivieren
+
+Im Azure Portal: **Arc Machine (`rg-arc`) → Extensions → + Add → Azure Automation - Hybrid Worker**
 
 | Feld | Wert |
 |------|------|
 | Automation Account | `aa-kerberos-rollover` |
 | Hybrid Worker Group | `HybridWorkerGroup-EntraConnect` |
 
-### Schritt 4 – Credential Assets anlegen
+Nach erfolgreicher Bereitstellung erscheint die Arc Machine in der Worker Group unter **Hybrid Worker Groups → HybridWorkerGroup-EntraConnect → Hybrid Workers**.
+
+### Schritt 5 – Credential Assets anlegen
 
 Im Azure Portal → Automation Account → **Shared Resources → Credentials** zwei Assets anlegen:
 
@@ -84,11 +94,11 @@ Im Azure Portal → Automation Account → **Shared Resources → Credentials** 
 | `AADSSOOnPremCredential` | `DOMAIN\sa-kerberos-rollover` | Ausgabe aus Schritt 1 |
 | `AADSSOCloudCredential` | UPN des Entra Global Admin | — |
 
-### Schritt 5 – Runbook importieren
+### Schritt 6 – Runbook importieren
 
 Im Automation Account → **Runbooks → Import a runbook** → `Reset-KerberosSSO.ps1` hochladen (Typ: PowerShell 5.1).
 
-### Schritt 6 – Schedule anlegen und verknüpfen
+### Schritt 7 – Schedule anlegen und verknüpfen
 
 Im Runbook → **Link to Schedule** → neuen Schedule erstellen:
 

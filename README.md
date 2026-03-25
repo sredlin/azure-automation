@@ -19,7 +19,7 @@ azure-automation/
 │       └── Sync-DelegateAccessByAttribute.ps1           # Runbook: FullAccess per AD-Attribut steuern
 │
 └── entra-seamless-sso/
-    ├── Initialize-HybridWorker.ps1                      # Einmalige Hybrid Worker Group Einrichtung
+    ├── Initialize-KerberosDelegation.ps1                # Einmalige AD-Delegation (DC / RSAT)
     └── Reset-KerberosSSO.ps1                            # Runbook: Kerberos Key monatlich rotieren
 ```
 
@@ -70,10 +70,10 @@ Rotiert den **Kerberos Decryption Key** des `AZUREADSSOACC`-Kontos für Entra ID
 
 | Skript | Zweck | Ausführung |
 |--------|-------|------------|
-| `Initialize-HybridWorker.ps1` | Richtet Hybrid Worker Group ein | Einmalig (lokal, als Admin) |
+| `Initialize-KerberosDelegation.ps1` | Erstellt AD-Serviceaccount mit delegierten Mindestrechten | Einmalig (DC / RSAT) |
 | `Reset-KerberosSSO.ps1` | Rotiert den Kerberos Decryption Key | Monatlich (Hybrid Worker) |
 
-**Benötigte Credential Assets:** `AADSSOOnPremCredential` (AD Enterprise/Domain Admin), `AADSSOCloudCredential` (Entra Global Admin)
+**Benötigte Credential Assets:** `AADSSOOnPremCredential` (delegierter AD-Serviceaccount), `AADSSOCloudCredential` (Entra Global Admin)
 **Ausführungsort:** Extension-based Hybrid Runbook Worker auf dem Entra Connect Server
 
 > Hinweis: Agent-based Hybrid Worker ist seit 31.08.2024 EOL (Abschaltung 01.04.2025).
