@@ -2,7 +2,7 @@
 #Requires -Modules ActiveDirectory
 <#
 .SYNOPSIS
-    Erstellt den AD-Serviceaccount fuer den Kerberos Key Rollover und setzt ACEs auf AZUREADSSOACC.
+    Erstellt den AD-Serviceaccount fuer den Kerberos Key Rollover und fuegt ihn zu Domain Admins hinzu.
 
 .DESCRIPTION
     Dieses Einrichtungsskript wird einmalig auf einem Domain Controller (oder einem
@@ -11,19 +11,13 @@
     Es fuehrt folgende Schritte aus:
       1. Generiert ein sicheres 32-Zeichen-Zufallspasswort (nur bei neuem Account)
       2. Legt den Serviceaccount im angegebenen OU-Pfad an (falls nicht vorhanden)
-      3. Setzt ACEs auf dem AZUREADSSOACC-Computerkonto:
-           - Read All Properties
-           - Reset Password
-           - Write msDS-SupportedEncryptionTypes
+      3. Fuegt den Account zur Gruppe "Domain Admins" hinzu
       4. Gibt das generierte Passwort einmalig aus (nur bei neuem Account)
 
-    WICHTIG – Least Privilege nicht moeglich:
-    Der Least-Privilege-Ansatz (nur ACE-Delegation auf AZUREADSSOACC) wurde getestet
-    und ist nicht ausreichend. Update-AzureADSSOForest prueft intern die Gruppen-
-    mitgliedschaft und schlaegt mit "Zugriff verweigert" fehl, auch wenn alle
-    relevanten Berechtigungen auf AZUREADSSOACC korrekt gesetzt sind.
-    Der Account muss Mitglied der Gruppe "Domain Admins" sein.
-    Das Skript gibt am Ende den entsprechenden Befehl aus.
+    Hinweis: Ein Least-Privilege-Ansatz per ACE-Delegation auf AZUREADSSOACC
+    wurde getestet und ist nicht moeglich. Update-AzureADSSOForest prueft intern
+    die Gruppenmitgliedschaft und schlaegt mit "Zugriff verweigert" fehl, auch
+    wenn alle relevanten Berechtigungen auf AZUREADSSOACC korrekt gesetzt sind.
 
     Das Passwort wird nicht in Logs oder Dateien gespeichert.
     Direkt nach der Ausgabe im Automation Account als Credential Asset hinterlegen:
@@ -91,7 +85,7 @@ function New-SecureRandomPassword {
     # Mindestens ein Zeichen aus jedem Zeichensatz sicherstellen
     $result = [char[]]::new($Length)
     for ($i = 0; $i -lt $charSets.Count; $i++) {
-        $set       = $charSets[$i]
+        $set        = $charSets[$i]
         $result[$i] = $set[$bytes[$i] % $set.Length]
     }
     for ($i = $charSets.Count; $i -lt $Length; $i++) {
@@ -101,10 +95,10 @@ function New-SecureRandomPassword {
     # Fisher-Yates-Shuffle fuer gleichmaessige Verteilung
     $rng.GetBytes($bytes)
     for ($i = $Length - 1; $i -gt 0; $i--) {
-        $j             = $bytes[$i] % ($i + 1)
-        $temp          = $result[$i]
-        $result[$i]    = $result[$j]
-        $result[$j]    = $temp
+        $j          = $bytes[$i] % ($i + 1)
+        $temp       = $result[$i]
+        $result[$i] = $result[$j]
+        $result[$j] = $temp
     }
 
     $rng.Dispose()
@@ -123,8 +117,6 @@ Write-Log "Domain erkannt: $DomainFQDN ($domainNetBIOS)"
 #endregion
 
 #region Serviceaccount anlegen
-
-$accountDN = "CN=$ServiceAccountName,$ServiceAccountOU"
 
 Write-Log "Prueffe Serviceaccount '$ServiceAccountName'."
 
@@ -151,76 +143,26 @@ if ($newAccount) {
     Write-Log "Serviceaccount '$ServiceAccountName' erstellt."
 }
 else {
-    Write-Log "Serviceaccount '$ServiceAccountName' bereits vorhanden. Nur Berechtigungen werden gesetzt (kein Passwort-Reset)."
+    Write-Log "Serviceaccount '$ServiceAccountName' bereits vorhanden."
 }
 
 #endregion
 
-#region Berechtigungen auf AZUREADSSOACC delegieren
+#region Domain Admins Mitgliedschaft sicherstellen
 
-Write-Log "Suche AZUREADSSOACC-Computerkonto."
+Write-Log "Prueffe Domain Admins Mitgliedschaft."
 
-$ssoAccount = Get-ADComputer -Filter { Name -eq 'AZUREADSSOACC' } -ErrorAction SilentlyContinue
+$isDomainAdmin = Get-ADGroupMember -Identity 'Domain Admins' |
+    Where-Object { $_.SamAccountName -eq $ServiceAccountName }
 
-if ($null -eq $ssoAccount) {
-    throw "Computerkonto 'AZUREADSSOACC' nicht gefunden. Ist Seamless SSO konfiguriert?"
+if ($null -eq $isDomainAdmin) {
+    Write-Log "Fuege '$ServiceAccountName' zu Domain Admins hinzu."
+    Add-ADGroupMember -Identity 'Domain Admins' -Members $ServiceAccountName
+    Write-Log "Mitgliedschaft gesetzt."
 }
-
-$ssoAccountDN   = $ssoAccount.DistinguishedName
-$ssoAccountPath = "AD:\$ssoAccountDN"
-
-Write-Log "AZUREADSSOACC gefunden: $ssoAccountDN"
-Write-Log "Delegiere Berechtigungen fuer '$ServiceAccountName'."
-
-$acl            = Get-Acl -Path $ssoAccountPath
-$accountSID     = (Get-ADUser -Identity $ServiceAccountName).SID
-$identity       = [System.Security.Principal.SecurityIdentifier]$accountSID
-
-# GUIDs der relevanten AD-Attribute und Extended Rights
-$guidResetPassword              = [Guid]'00299570-246d-11d0-a768-00aa006e0529'
-$guidMsDsSupportedEncTypes      = [Guid]'20119867-1d04-4ab7-9371-cfc3d5df0afd'
-$adRightsReadProperty           = [System.DirectoryServices.ActiveDirectoryRights]::ReadProperty
-$adRightsWriteProperty          = [System.DirectoryServices.ActiveDirectoryRights]::WriteProperty
-$adRightsExtendedRight          = [System.DirectoryServices.ActiveDirectoryRights]::ExtendedRight
-$accessControlTypeAllow         = [System.Security.AccessControl.AccessControlType]::Allow
-$inheritanceFlagNone            = [System.DirectoryServices.ActiveDirectorySecurityInheritance]::None
-
-# Read All Properties
-$aceReadAll = New-Object System.DirectoryServices.ActiveDirectoryAccessRule(
-    $identity,
-    $adRightsReadProperty,
-    $accessControlTypeAllow,
-    [Guid]::Empty,
-    $inheritanceFlagNone,
-    [Guid]::Empty
-)
-
-# Reset Password
-$aceResetPassword = New-Object System.DirectoryServices.ActiveDirectoryAccessRule(
-    $identity,
-    $adRightsExtendedRight,
-    $accessControlTypeAllow,
-    $guidResetPassword,
-    $inheritanceFlagNone,
-    [Guid]::Empty
-)
-
-# Write msDS-SupportedEncryptionTypes
-$aceWriteEncTypes = New-Object System.DirectoryServices.ActiveDirectoryAccessRule(
-    $identity,
-    $adRightsWriteProperty,
-    $accessControlTypeAllow,
-    $guidMsDsSupportedEncTypes,
-    $inheritanceFlagNone,
-    [Guid]::Empty
-)
-
-$acl.AddAccessRule($aceReadAll)
-$acl.AddAccessRule($aceResetPassword)
-$acl.AddAccessRule($aceWriteEncTypes)
-Set-Acl -Path $ssoAccountPath -AclObject $acl
-
-Write-Log "Berechtigungen erfolgreich delegiert."
+else {
+    Write-Log "'$ServiceAccountName' ist bereits Mitglied von Domain Admins."
+}
 
 #endregion
 
@@ -247,15 +189,5 @@ if ($newAccount) {
 }
 
 Write-Log "Einrichtung abgeschlossen."
-Write-Host ""
-Write-Host "============================================================" -ForegroundColor Cyan
-Write-Host " NAECHSTER SCHRITT: Domain Admins Mitgliedschaft setzen" -ForegroundColor Cyan
-Write-Host "============================================================" -ForegroundColor Cyan
-Write-Host " Update-AzureADSSOForest erfordert Domain Administrator-"
-Write-Host " Mitgliedschaft. ACE-Delegation allein ist nicht ausreichend."
-Write-Host ""
-Write-Host " Add-ADGroupMember -Identity 'Domain Admins' -Members '$ServiceAccountName'"
-Write-Host "============================================================" -ForegroundColor Cyan
-Write-Host ""
 
 #endregion

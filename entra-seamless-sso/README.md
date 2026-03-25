@@ -14,7 +14,7 @@ Im Rahmen der Seamless SSO-Konfiguration erstellt Microsoft Entra Connect im lok
 
 | Datei | Zweck | Ausführung |
 |-------|-------|------------|
-| `Initialize-KerberosDelegation.ps1` | Erstellt AD-Serviceaccount und delegiert Mindestrechte auf `AZUREADSSOACC` | Einmalig (DC / RSAT) |
+| `Initialize-KerberosDelegation.ps1` | Erstellt AD-Serviceaccount und fügt ihn zu Domain Admins hinzu | Einmalig (DC / RSAT) |
 | `Reset-KerberosSSO.ps1` | Führt den Kerberos Key Rollover durch | Monatlich (Azure Automation Schedule) |
 
 ---
@@ -57,11 +57,7 @@ Der Domain-FQDN wird automatisch über `Get-ADDomain` ermittelt.
 
 Das Skript gibt das generierte Passwort **einmalig** aus – direkt im nächsten Schritt als Credential Asset hinterlegen.
 
-Anschließend den Account zu Domain Admins hinzufügen (Ausgabe des Skripts beachten):
-
-```powershell
-Add-ADGroupMember -Identity "Domain Admins" -Members "sa-kerberos-rollover"
-```
+Die Domain Admins-Mitgliedschaft wird vom Skript automatisch gesetzt.
 
 ### Schritt 2 – Automation Account erstellen
 
