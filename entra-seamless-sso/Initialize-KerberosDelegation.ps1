@@ -144,8 +144,7 @@ if ($null -eq $existingAccount) {
     Write-Log "Serviceaccount '$ServiceAccountName' erstellt."
 }
 else {
-    Write-Log "Serviceaccount '$ServiceAccountName' bereits vorhanden. Setze Passwort zurueck."
-    Set-ADAccountPassword -Identity $ServiceAccountName -NewPassword $securePassword -Reset
+    Write-Log "Serviceaccount '$ServiceAccountName' bereits vorhanden. Nur Berechtigungen werden gesetzt (kein Passwort-Reset)."
 }
 
 #endregion
