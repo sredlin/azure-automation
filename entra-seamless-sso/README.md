@@ -34,8 +34,15 @@ Im Rahmen der Seamless SSO-Konfiguration erstellt Microsoft Entra Connect im lok
 
 ### Infrastruktur
 
-- Azure Automation Account (in `rg-automation`)
-- Windows Server mit **Microsoft Entra Connect** – als **Arc Machine** registriert (in `rg-arc`)
+Namensschema für Ressourcengruppen: `rg-<workload>-<region>-<env>`
+
+| Resource Group | Inhalt |
+|---|---|
+| `rg-arc-we-prod` | Arc-registrierte Maschinen |
+| `rg-automation-we-prod` | Automation Accounts, Runbooks |
+
+- Azure Automation Account (in `rg-automation-we-prod`)
+- Windows Server mit **Microsoft Entra Connect** – als **Arc Machine** registriert (in `rg-arc-we-prod`)
 - Arc Machine mit **Extension-based Hybrid Runbook Worker** (`HybridWorkerForWindows`)
 
 > **Wichtig:** Agent-based Hybrid Worker ist seit 31.08.2024 EOL und wird ab 01.04.2025 nicht mehr unterstützt. Ausschließlich Extension-based Worker verwenden.
@@ -65,7 +72,7 @@ Im Azure Portal → **Automation Accounts → + Create**
 
 | Feld | Wert |
 |------|------|
-| Resource Group | `rg-automation` |
+| Resource Group | `rg-automation-we-prod` |
 | Name | z. B. `aa-kerberos-rollover` |
 | Region | z. B. `West Europe` |
 
@@ -80,7 +87,7 @@ Im Automation Account → **Hybrid Worker Groups → + Create**
 
 ### Schritt 4 – HybridWorkerForWindows Extension an der Arc Machine aktivieren
 
-Im Azure Portal: **Arc Machine (`rg-arc`) → Extensions → + Add → Azure Automation - Hybrid Worker**
+Im Azure Portal: **Arc Machine (`rg-arc-we-prod`) → Extensions → + Add → Azure Automation - Hybrid Worker**
 
 | Feld | Wert |
 |------|------|
@@ -160,10 +167,10 @@ Für Multi-Forest den Runbook-Parameter `-OnPremCredentials` pro Forest mit dem 
 ```
 DC / RSAT
 └── Initialize-KerberosDelegation.ps1
-      └── sa-kerberos-rollover  (delegiert: Reset PW + Write msDS-SupportedEncryptionTypes)
+      └── sa-kerberos-rollover  (Domain Admins)
             └── AZUREADSSOACC  (Seamless SSO Computerkonto)
 
-rg-automation
+rg-automation-we-prod
 └── Automation Account: aa-kerberos-rollover
     ├── Credential Assets
     │   ├── AADSSOOnPremCredential  (DOMAIN\sa-kerberos-rollover)
@@ -171,7 +178,7 @@ rg-automation
     ├── Runbook: Reset-KerberosSSO.ps1
     ├── Schedule (monatlich)
     └── Hybrid Worker Group: HybridWorkerGroup-EntraConnect
-            └── Arc Machine (Entra Connect Server)  ← rg-arc
+            └── Arc Machine (Entra Connect Server)  ← rg-arc-we-prod
                     └── Extension: HybridWorkerForWindows
                             └── AzureADSSO.psd1 → Update-AzureADSSOForest
 ```
