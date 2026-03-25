@@ -104,14 +104,6 @@ function New-SecureRandomPassword {
 
 #endregion
 
-#region Passwort generieren
-
-Write-Log "Generiere sicheres 32-Zeichen-Passwort."
-$plainPassword  = New-SecureRandomPassword -Length 32
-$securePassword = ConvertTo-SecureString -String $plainPassword -AsPlainText -Force
-
-#endregion
-
 #region Domain ermitteln
 
 $domain        = Get-ADDomain
@@ -129,7 +121,13 @@ Write-Log "Prueffe Serviceaccount '$ServiceAccountName'."
 
 $existingAccount = Get-ADUser -Filter { SamAccountName -eq $ServiceAccountName } -ErrorAction SilentlyContinue
 
-if ($null -eq $existingAccount) {
+$newAccount = $null -eq $existingAccount
+
+if ($newAccount) {
+    Write-Log "Generiere sicheres 32-Zeichen-Passwort."
+    $plainPassword  = New-SecureRandomPassword -Length 32
+    $securePassword = ConvertTo-SecureString -String $plainPassword -AsPlainText -Force
+
     Write-Log "Account nicht vorhanden. Lege an in: $ServiceAccountOU"
     New-ADUser `
         -Name                 $ServiceAccountName `
@@ -219,23 +217,25 @@ Write-Log "Berechtigungen erfolgreich delegiert."
 
 #region Ergebnis ausgeben
 
-Write-Host ""
-Write-Host "============================================================" -ForegroundColor Yellow
-Write-Host " PASSWORT – NUR EINMALIG ANGEZEIGT" -ForegroundColor Yellow
-Write-Host "============================================================" -ForegroundColor Yellow
-Write-Host " Account : $domainNetBIOS\$ServiceAccountName"
-Write-Host " Passwort: $plainPassword"
-Write-Host "============================================================" -ForegroundColor Yellow
-Write-Host " Jetzt im Azure Automation Account hinterlegen:"
-Write-Host " Automation Account > Credentials > AADSSOOnPremCredential"
-Write-Host " Username : $domainNetBIOS\$ServiceAccountName"
-Write-Host " Password : (s. o.)"
-Write-Host "============================================================" -ForegroundColor Yellow
-Write-Host ""
+if ($newAccount) {
+    Write-Host ""
+    Write-Host "============================================================" -ForegroundColor Yellow
+    Write-Host " PASSWORT – NUR EINMALIG ANGEZEIGT" -ForegroundColor Yellow
+    Write-Host "============================================================" -ForegroundColor Yellow
+    Write-Host " Account : $domainNetBIOS\$ServiceAccountName"
+    Write-Host " Passwort: $plainPassword"
+    Write-Host "============================================================" -ForegroundColor Yellow
+    Write-Host " Jetzt im Azure Automation Account hinterlegen:"
+    Write-Host " Automation Account > Credentials > AADSSOOnPremCredential"
+    Write-Host " Username : $domainNetBIOS\$ServiceAccountName"
+    Write-Host " Password : (s. o.)"
+    Write-Host "============================================================" -ForegroundColor Yellow
+    Write-Host ""
 
-# Passwort aus dem Speicher loeschen
-$plainPassword = $null
-[System.GC]::Collect()
+    # Passwort aus dem Speicher loeschen
+    $plainPassword = $null
+    [System.GC]::Collect()
+}
 
 Write-Log "Einrichtung abgeschlossen."
 
