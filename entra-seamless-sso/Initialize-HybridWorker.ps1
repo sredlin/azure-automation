@@ -1,27 +1,32 @@
 #Requires -Version 5.1
-#Requires -RunAsAdministrator
 <#
 .SYNOPSIS
-    Richtet den Entra Connect Server als Extension-based Hybrid Runbook Worker ein.
+    Erstellt den Azure Automation Account und die Hybrid Worker Group fuer den Kerberos Key Rollover.
 
 .DESCRIPTION
-    Dieses Einrichtungsskript wird einmalig auf dem Entra Connect Server ausgefuehrt
-    (PowerShell als Administrator). Es installiert das Az-Modul (falls noetig) und
-    registriert den Server als Extension-based Hybrid Runbook Worker in einer
-    dedizierten Hybrid Worker Group des angegebenen Automation Accounts.
+    Dieses Einrichtungsskript wird einmalig ausgefuehrt und erstellt:
+      1. Den Azure Automation Account (in der Automation-RG)
+      2. Die Hybrid Worker Group im Automation Account
 
-    HINWEIS: Agent-based Hybrid Worker ist seit 31. August 2024 EOL und wird ab
-    1. April 2025 nicht mehr unterstuetzt. Dieses Skript verwendet ausschliesslich
-    Extension-based Worker (VM-Extension oder Arc-Extension).
+    Anschliessend muss die HybridWorkerForWindows-Extension manuell an der
+    Arc Machine aktiviert und mit dem Automation Account verknuepft werden.
 
-    Nach der Ausfuehrung dieses Skripts muss der Worker noch ueber das Azure Portal
-    oder per ARM/Bicep mit der VM-Extension verbunden werden. Siehe README.md.
+    Reihenfolge:
+      1. Dieses Skript ausfuehren
+      2. Im Azure Portal: Arc Machine > Extensions > HybridWorkerForWindows
+         hinzufuegen und mit Automation Account + Worker Group verknuepfen
+      3. Credential Assets anlegen (AADSSOOnPremCredential, AADSSOCloudCredential)
+      4. Runbook Reset-KerberosSSO.ps1 hochladen und Schedule anlegen
 
-.PARAMETER ResourceGroupName
-    Name der Resource Group des Azure Automation Accounts.
+.PARAMETER AutomationResourceGroupName
+    Name der Resource Group fuer den Automation Account.
 
 .PARAMETER AutomationAccountName
-    Name des Azure Automation Accounts.
+    Name des Automation Accounts (wird angelegt, falls nicht vorhanden).
+
+.PARAMETER Location
+    Azure Region fuer den Automation Account.
+    Standard: "westeurope"
 
 .PARAMETER HybridWorkerGroupName
     Name der Hybrid Worker Group (wird angelegt, falls nicht vorhanden).
@@ -33,22 +38,25 @@
 
 .EXAMPLE
     .\Initialize-HybridWorker.ps1 `
-        -ResourceGroupName "rg-automation" `
+        -AutomationResourceGroupName "rg-automation" `
         -AutomationAccountName "aa-kerberos-rollover" `
+        -Location "westeurope" `
         -HybridWorkerGroupName "HybridWorkerGroup-EntraConnect"
 
 .NOTES
-    Ausfuehrung    : Einmalig, lokal auf dem Entra Connect Server (als Admin)
+    Ausfuehrung    : Einmalig (von beliebigem Rechner mit Az-Modul)
     Erstellt von   : Stefan Redlin / Vater Business IT GmbH
 #>
 
 [CmdletBinding()]
 param (
     [Parameter(Mandatory)]
-    [string]$ResourceGroupName,
+    [string]$AutomationResourceGroupName,
 
     [Parameter(Mandatory)]
     [string]$AutomationAccountName,
+
+    [string]$Location = 'westeurope',
 
     [string]$HybridWorkerGroupName = 'HybridWorkerGroup-EntraConnect',
 
@@ -72,30 +80,25 @@ function Write-Log {
 
 #endregion
 
-#region Az-Modul sicherstellen
+#region Az-Module sicherstellen
 
-Write-Log "Prueffe Az.Automation Modul."
-
-if (-not (Get-Module -ListAvailable -Name Az.Automation)) {
-    Write-Log "Az.Automation nicht gefunden. Installiere Az-Modul (AllUsers)..."
-    Install-Module -Name Az -Scope AllUsers -Force -AllowClobber
-    Write-Log "Az-Modul installiert."
-}
-else {
-    Write-Log "Az.Automation Modul vorhanden."
+foreach ($module in @('Az.Accounts', 'Az.Automation')) {
+    if (-not (Get-Module -ListAvailable -Name $module)) {
+        Write-Log "Installiere Modul: $module"
+        Install-Module -Name $module -Scope CurrentUser -Force -AllowClobber
+    }
 }
 
-Import-Module -Name Az.Automation, Az.Accounts -Force
+Import-Module -Name Az.Accounts, Az.Automation -Force
 
 #endregion
 
 #region Azure-Verbindung herstellen
 
-Write-Log "Verbinde mit Azure (interaktiver Login)."
+Write-Log "Verbinde mit Azure."
 Connect-AzAccount
 
 if ($SubscriptionId) {
-    Write-Log "Setze Subscription: $SubscriptionId"
     Set-AzContext -SubscriptionId $SubscriptionId | Out-Null
 }
 
@@ -104,12 +107,35 @@ Write-Log "Aktive Subscription: $($currentSub.Name) ($($currentSub.Id))"
 
 #endregion
 
-#region Hybrid Worker Group anlegen
+#region Automation Account erstellen
+
+Write-Log "Prueffe Automation Account '$AutomationAccountName'."
+
+$automationAccount = Get-AzAutomationAccount `
+    -ResourceGroupName $AutomationResourceGroupName `
+    -Name $AutomationAccountName `
+    -ErrorAction SilentlyContinue
+
+if ($null -eq $automationAccount) {
+    Write-Log "Automation Account nicht vorhanden. Lege an..."
+    New-AzAutomationAccount `
+        -ResourceGroupName $AutomationResourceGroupName `
+        -Name $AutomationAccountName `
+        -Location $Location | Out-Null
+    Write-Log "Automation Account '$AutomationAccountName' erstellt."
+}
+else {
+    Write-Log "Automation Account '$AutomationAccountName' bereits vorhanden."
+}
+
+#endregion
+
+#region Hybrid Worker Group erstellen
 
 Write-Log "Prueffe Hybrid Worker Group '$HybridWorkerGroupName'."
 
 $existingGroup = Get-AzAutomationHybridRunbookWorkerGroup `
-    -ResourceGroupName $ResourceGroupName `
+    -ResourceGroupName $AutomationResourceGroupName `
     -AutomationAccountName $AutomationAccountName `
     -Name $HybridWorkerGroupName `
     -ErrorAction SilentlyContinue
@@ -117,7 +143,7 @@ $existingGroup = Get-AzAutomationHybridRunbookWorkerGroup `
 if ($null -eq $existingGroup) {
     Write-Log "Hybrid Worker Group nicht vorhanden. Lege an..."
     New-AzAutomationHybridRunbookWorkerGroup `
-        -ResourceGroupName $ResourceGroupName `
+        -ResourceGroupName $AutomationResourceGroupName `
         -AutomationAccountName $AutomationAccountName `
         -Name $HybridWorkerGroupName | Out-Null
     Write-Log "Hybrid Worker Group '$HybridWorkerGroupName' erstellt."
@@ -130,18 +156,15 @@ else {
 
 #region Naechste Schritte
 
-Write-Log "Hybrid Worker Group ist bereit."
+Write-Log "Einrichtung abgeschlossen."
 Write-Log ""
-Write-Log "Naechste Schritte (im Azure Portal oder per ARM/Bicep):"
-Write-Log "  1. Navigiere zum Automation Account: $AutomationAccountName"
-Write-Log "  2. Hybrid Worker Groups > $HybridWorkerGroupName > Add machines"
-Write-Log "  3. Diesen Server ($env:COMPUTERNAME) als Extension-based Worker hinzufuegen."
-Write-Log "     - Azure VM: VM-Extension 'HybridWorkerForWindows' installieren"
-Write-Log "     - On-premises/Arc: Azure Arc einrichten, dann Arc-Extension"
-Write-Log "  4. Nach Registrierung: Runbook Reset-KerberosSSO.ps1 hochladen und"
-Write-Log "     Schedule auf diese Worker Group zeigen lassen."
-Write-Log ""
-Write-Log "Dokumentation Extension-based Worker:"
-Write-Log "  https://learn.microsoft.com/azure/automation/extension-based-hybrid-runbook-worker-install"
+Write-Log "Naechste Schritte:"
+Write-Log "  1. Arc Machine > Extensions > + Add > HybridWorkerForWindows"
+Write-Log "     Automation Account : $AutomationAccountName"
+Write-Log "     Worker Group       : $HybridWorkerGroupName"
+Write-Log "  2. Automation Account > Credentials > zwei Assets anlegen:"
+Write-Log "     - AADSSOOnPremCredential  (AD Enterprise/Domain Admin)"
+Write-Log "     - AADSSOCloudCredential   (Entra Global Admin)"
+Write-Log "  3. Runbook Reset-KerberosSSO.ps1 hochladen und Schedule anlegen."
 
 #endregion
