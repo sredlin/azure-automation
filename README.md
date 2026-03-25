@@ -14,9 +14,13 @@ azure-automation/
 │   ├── Initialize-NamedLocationAutomationIdentity.ps1   # Einmalige Berechtigungseinrichtung
 │   └── Invoke-TorExitNodesNamedLocation.ps1             # Runbook: Tor Exit Nodes aktuell halten
 │
-└── exchange/
-    └── delegate-access-sync/
-        └── Sync-DelegateAccessByAttribute.ps1           # Runbook: FullAccess per AD-Attribut steuern
+├── exchange/
+│   └── delegate-access-sync/
+│       └── Sync-DelegateAccessByAttribute.ps1           # Runbook: FullAccess per AD-Attribut steuern
+│
+└── entra-seamless-sso/
+    ├── Initialize-KerberosDelegation.ps1                # Einmalige AD-Delegation (DC / RSAT)
+    └── Reset-KerberosSSO.ps1                            # Runbook: Kerberos Key monatlich rotieren
 ```
 
 ---
@@ -55,6 +59,26 @@ Synchronisiert **FullAccess-Berechtigungen** einer Delegate-Mailbox in Exchange 
 **Benötigte Exchange-Berechtigungen (Least Privilege):** `Get-Mailbox`, `Get-MailboxPermission`, `Add-MailboxPermission`, `Remove-MailboxPermission`
 
 Weitere Details: [`exchange/delegate-access-sync/README.md`](exchange/delegate-access-sync/README.md)
+
+---
+
+### Kerberos Key Rollover – Seamless SSO
+
+**Verzeichnis:** `entra-seamless-sso/`
+
+Rotiert den **Kerberos Decryption Key** des `AZUREADSSOACC`-Kontos für Entra ID Seamless SSO monatlich via Hybrid Runbook Worker.
+
+| Skript | Zweck | Ausführung |
+|--------|-------|------------|
+| `Initialize-KerberosDelegation.ps1` | Erstellt AD-Serviceaccount mit delegierten Mindestrechten | Einmalig (DC / RSAT) |
+| `Reset-KerberosSSO.ps1` | Rotiert den Kerberos Decryption Key | Monatlich (Hybrid Worker) |
+
+**Benötigte Credential Assets:** `AADSSOOnPremCredential` (delegierter AD-Serviceaccount), `AADSSOCloudCredential` (Entra Global Admin)
+**Ausführungsort:** Extension-based Hybrid Runbook Worker auf dem Entra Connect Server
+
+> Hinweis: Agent-based Hybrid Worker ist seit 31.08.2024 EOL (Abschaltung 01.04.2025).
+
+Weitere Details: [`entra-seamless-sso/README.md`](entra-seamless-sso/README.md)
 
 ---
 
